@@ -1,0 +1,206 @@
+import os
+import sqlite3
+import re
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+
+# Ma'lumotlar bazasini sozlash
+conn = sqlite3.connect("pes_stats.db", check_same_thread=False)
+cursor = conn.cursor()
+
+# Umumiya statistika
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS stats (
+        user_id INTEGER PRIMARY KEY,
+        username TEXT,
+        wins INTEGER DEFAULT 0,
+        draws INTEGER DEFAULT 0,
+        losses INTEGER DEFAULT 0,
+        points INTEGER DEFAULT 0
+    )
+''')
+
+# O'zaro o'yinlar tarixi (H2H uchun)
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS matches (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        p1 TEXT,
+        p2 TEXT,
+        p1_score INTEGER,
+        p2_score INTEGER
+    )
+''')
+conn.commit()
+
+def update_player(user_id, username, wins, draws, losses, points):
+    cursor.execute('''
+        INSERT INTO stats (user_id, username, wins, draws, losses, points)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            username = excluded.username,
+            wins = wins + excluded.wins,
+            draws = draws + excluded.draws,
+            losses = losses + excluded.losses,
+            points = points + excluded.points
+    ''', (user_id, username, wins, draws, losses, points))
+    conn.commit()
+
+# /start buyrug'i
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "⚽ **PES League Bot aktiv!**\n\n"
+        "Natijani kiritish:\n"
+        "👉 `@username yutdim 3-1` yoki `@username durang 2-2`\n\n"
+        "Buyruqlar:\n"
+        "📊 /jadval - Umumiy reyting\n"
+        "⚔️ `/h2h @user1 @user2` - Ikki o'yinchining o'zaro nisbati\n"
+        "📜 /tarix - Oxirgi 10 ta o'yin\n"
+        "🔄 /reset - Jadval va tarixni nolga tushirish"
+    )
+
+# Natijalarni saqlash
+async def handle_match(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    if not text:
+        return
+
+    pattern = r'@(\w+)\s+(yutdim|yutqazdim|durang)\s+(\d+)[-:](\d+)'
+    match = re.search(pattern, text, re.IGNORECASE)
+
+    if match:
+        opponent_username = f"@{match.group(1)}"
+        result_type = match.group(2).lower()
+        my_goals = int(match.group(3))
+        opp_goals = int(match.group(4))
+
+        winner = update.message.from_user
+        my_username = f"@{winner.username or winner.first_name}"
+
+        if my_username.lower() == opponent_username.lower():
+            await update.message.reply_text("O'zingiz bilan o'ynay olmaysiz!")
+            return
+
+        # Tarixga saqlash
+        cursor.execute("INSERT INTO matches (p1, p2, p1_score, p2_score) VALUES (?, ?, ?, ?)",
+                       (my_username, opponent_username, my_goals, opp_goals))
+
+        if result_type == "yutdim":
+            update_player(winner.id, my_username, 1, 0, 0, 3)
+            cursor.execute("SELECT user_id FROM stats WHERE username = ?", (opponent_username,))
+            row = cursor.fetchone()
+            opp_id = row[0] if row else hash(opponent_username)
+            update_player(opp_id, opponent_username, 0, 0, 1, 0)
+            
+            await update.message.reply_text(f"✅ Natija saqlandi!\n🏆 {my_username} (+3) | {my_goals}:{opp_goals} | {opponent_username} (+0)")
+
+        elif result_type == "durang":
+            update_player(winner.id, my_username, 0, 1, 0, 1)
+            cursor.execute("SELECT user_id FROM stats WHERE username = ?", (opponent_username,))
+            row = cursor.fetchone()
+            opp_id = row[0] if row else hash(opponent_username)
+            update_player(opp_id, opponent_username, 0, 1, 0, 1)
+            
+            await update.message.reply_text(f"🤝 Durang saqlandi! ({my_goals}:{opp_goals})")
+
+# O'zaro o'yinlar nisbati (/h2h @user1 @user2)
+async def h2h_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) < 2:
+        await update.message.reply_text("Iltimos, ikkita o'yinchini kiriting:\nMasalan: `/h2h @bekzod @ali`", parse_mode="Markdown")
+        return
+
+    p1 = context.args[0]
+    p2 = context.args[1]
+
+    cursor.execute('''
+        SELECT p1, p1_score, p2_score, p2 FROM matches 
+        WHERE (p1 = ? AND p2 = ?) OR (p1 = ? AND p2 = ?)
+    ''', (p1, p2, p2, p1))
+    
+    games = cursor.fetchall()
+
+    if not games:
+        await update.message.reply_text(f"{p1} va {p2} o'rtasida hali o'yin bo'lmagan.")
+        return
+
+    p1_wins = 0
+    p2_wins = 0
+    draws = 0
+
+    for g in games:
+        # Match kim tomonidan kiritilganiga qarab hisoblash
+        if g[0] == p1:
+            s1, s2 = g[1], g[2]
+        else:
+            s1, s2 = g[2], g[1]
+
+        if s1 > s2:
+            p1_wins += 1
+        elif s2 > s1:
+            p2_wins += 1
+        else:
+            draws += 1
+
+    msg = f"⚔️ **O'ZARO NISBAT (H2H)**\n{p1} 🆚 {p2}\n\n"
+    msg += f"🏆 {p1} g'alabalari: **{p1_wins}**\n"
+    msg += f"🏆 {p2} g'alabalari: **{p2_wins}**\n"
+    msg += f"🤝 Duranglar: **{draws}**\n"
+    msg += f"🏟 Jami o'yinlar: **{len(games)}**"
+
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+# Oxirgi o'yinlar tarixi
+async def match_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    cursor.execute("SELECT p1, p1_score, p2_score, p2 FROM matches ORDER BY id DESC LIMIT 10")
+    rows = cursor.fetchall()
+
+    if not rows:
+        await update.message.reply_text("Hali o'yinlar tarixi yo'q.")
+        return
+
+    text = "📜 **OXIRGI 10 TA O'YIN:**\n\n"
+    for r in rows:
+        text += f"• {r[0]} {r[1]} : {r[2]} {r[3]}\n"
+
+    await update.message.reply_text(text)
+
+# Turnir jadvali
+async def show_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    cursor.execute("SELECT username, wins, draws, losses, points FROM stats ORDER BY points DESC, wins DESC")
+    rows = cursor.fetchall()
+
+    if not rows:
+        await update.message.reply_text("Hali hech qanday o'yin o'tkazilmadi.")
+        return
+
+    text = "📊 **REATING JADVALI**\n\n"
+    for idx, row in enumerate(rows, 1):
+        text += f"{idx}. {row[0]}: {row[1]}G' | {row[2]}D | {row[3]}M | **{row[4]} о**\n"
+
+    await update.message.reply_text(text, parse_mode="Markdown")
+
+# Nolga tushirish
+async def reset_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    cursor.execute("DELETE FROM stats")
+    cursor.execute("DELETE FROM matches")
+    conn.commit()
+    await update.message.reply_text("🔄 Barcha natijalar va o'yinlar tarixi nolga tushirildi!")
+
+def main():
+    token = os.getenv("BOT_TOKEN")
+    if not token:
+        print("BOT_TOKEN topilmadi!")
+        return
+
+    app = Application.builder().token(token).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("jadval", show_table))
+    app.add_handler(CommandHandler("h2h", h2h_stats))
+    app.add_handler(CommandHandler("tarix", match_history))
+    app.add_handler(CommandHandler("reset", reset_stats))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_match))
+
+    print("Bot ishga tushdi...")
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
