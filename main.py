@@ -4,7 +4,7 @@ import re
 import html
 import threading
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -430,10 +430,25 @@ def main():
     
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_match))
 
-    # Taymerlar (Sekund hisobida)
-    app.job_queue.run_repeating(daily_summary, interval=86400, first=86400) # Har 24 soatda
-    app.job_queue.run_repeating(auto_announce, interval=259200, first=259200) # Har 3 kunda
-    app.job_queue.run_repeating(weekly_summary, interval=604800, first=604800) # Har 7 kunda
+    # O'zbekiston vaqti (UTC+5)
+    tz_uz = timezone(timedelta(hours=5))
+    
+    # Soat 23:00 ni belgilash
+    time_23 = time(hour=23, minute=0, tzinfo=tz_uz)
+    
+    # 1. Kunlik sarhisob (Har kuni 23:00 da)
+    app.job_queue.run_daily(daily_summary, time=time_23)
+    
+    # 2. Haftalik sarhisob (Yakshanba kuni 23:00 da) -> 6 = Yakshanba
+    app.job_queue.run_daily(weekly_summary, time=time_23, days=(6,))
+    
+    # 3. 3 kunlik kutilmagan mem (Har 3 kunda 17:00 da)
+    now = datetime.now(tz_uz)
+    first_17 = now.replace(hour=17, minute=0, second=0, microsecond=0)
+    if now > first_17:
+        first_17 += timedelta(days=1)
+        
+    app.job_queue.run_repeating(auto_announce, interval=timedelta(days=3), first=first_17)
 
     print("Bot ishga tushdi...")
     app.run_polling()
