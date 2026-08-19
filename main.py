@@ -12,7 +12,6 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 # 1. SERVER VA BAZA SOZLAMALARI
 # ==========================================
 
-# Render/Heroku uchun Dummy HTTP Server (Bot to'xtab qolmasligi uchun)
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -41,7 +40,6 @@ cursor.execute('''
         date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 ''')
-# Guruh chat_id sini saqlash uchun (avto-xabar yuborishga kerak)
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
@@ -105,20 +103,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "⚔️ <code>/h2h @user1 @user2</code> - O'zaro tarix\n"
         "📺 <code>/del ID</code> - Xatoni o'chirish (Faqat Adminlar)"
     )
-    await update.message.reply_text(text, parse_mode='HTML')
+    await update.effective_message.reply_text(text, parse_mode='HTML')
 
-# Natijani qabul qilish
 async def handle_match(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
+    text = update.effective_message.text
     if not text:
         return
 
-    # Guruh chat_id sini saqlab qo'yamiz (Avto-xabar uchun)
-    chat_id = update.message.chat_id
+    chat_id = update.effective_chat.id
     cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('group_chat_id', ?)", (str(chat_id),))
     conn.commit()
 
-    # Regex: @username (yutdim|yutqazdim|durang) 4-1
     pattern = r'@(\w+)\s+(yutdim|yutqazdim|durang)\s+(\d+)\s*[-:]\s*(\d+)'
     match = re.search(pattern, text, re.IGNORECASE)
 
@@ -128,31 +123,27 @@ async def handle_match(update: Update, context: ContextTypes.DEFAULT_TYPE):
         s1 = int(match.group(3))
         s2 = int(match.group(4))
 
-        sender = update.message.from_user
+        sender = update.effective_user
         my_raw = f"@{sender.username or sender.first_name}"
 
         if my_raw.lower() == opp_raw.lower():
-            await update.message.reply_text("O'zingiz bilan o'zingiz o'ynab jinni bo'ldingizmi? 🤦‍♂️")
+            await update.effective_message.reply_text("O'zingiz bilan o'zingiz o'ynab jinni bo'ldingizmi? 🤦‍♂️")
             return
 
-        # Yutdim/Yutqazdim mantiqini to'g'rilash (katta raqam kimga tegishli)
         if action == "yutdim":
             my_goals, opp_goals = max(s1, s2), min(s1, s2)
         elif action == "yutqazdim":
             my_goals, opp_goals = min(s1, s2), max(s1, s2)
         else:
-            my_goals, opp_goals = s1, s2 # Durang
+            my_goals, opp_goals = s1, s2 
 
-        # Bazaga yozish
         cursor.execute("INSERT INTO matches (p1, p2, p1_score, p2_score) VALUES (?, ?, ?, ?)",
                        (my_raw, opp_raw, my_goals, opp_goals))
         conn.commit()
 
-        # HTML escape (xatolikni oldini olish)
         my_esc = html.escape(my_raw)
         opp_esc = html.escape(opp_raw)
 
-        # Emotsional javob
         if my_goals > opp_goals:
             farq = my_goals - opp_goals
             if farq >= 3:
@@ -164,19 +155,15 @@ async def handle_match(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             msg = f"🤝 <b>Murosasiz jang!</b> {my_esc} va {opp_esc} durang o'ynadi ({my_goals}:{opp_goals})."
 
-        await update.message.reply_text(msg, parse_mode='HTML')
+        await update.effective_message.reply_text(msg, parse_mode='HTML')
 
-# Jadvalni ko'rsatish
 async def show_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
     stats = get_all_stats()
     if not stats:
-        await update.message.reply_text("Hali maydonga hech kim tushmadi. Qani, kim boshlab beradi? ⚽️")
+        await update.effective_message.reply_text("Hali maydonga hech kim tushmadi. Qani, kim boshlab beradi? ⚽️")
         return
 
-    # 1. Umumiy ochkolar bo'yicha saralash
     sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
-    
-    # 2. Koeffitsiyent bo'yicha saralash (Kamida 3 ta o'yin)
     valid_ppg = {k: v for k, v in stats.items() if v['games'] >= 3}
     sorted_ppg = sorted(valid_ppg.items(), key=lambda x: (x[1]['pts'] / x[1]['games']), reverse=True)
 
@@ -199,9 +186,8 @@ async def show_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text += f"{idx}. {p_esc} | {ppg:.2f} PPG | ({s['games']} o'yin)\n"
         text += "</pre>"
 
-    await update.message.reply_text(text, parse_mode='HTML')
+    await update.effective_message.reply_text(text, parse_mode='HTML')
 
-# Oxirgi 7 kunlik tarix
 async def match_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     seven_days_ago = datetime.now() - timedelta(days=7)
     cursor.execute("SELECT id, p1, p2, p1_score, p2_score, date FROM matches WHERE date >= ? ORDER BY id DESC", (seven_days_ago,))
@@ -220,17 +206,15 @@ async def match_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.effective_message.reply_text(text, parse_mode='HTML')
 
-# Xatoni o'chirish (Faqat Admin)
 async def delete_match(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("Iltimos, o'yin ID sini kiriting. Masalan: <code>/del 45</code>", parse_mode='HTML')
+        await update.effective_message.reply_text("Iltimos, o'yin ID sini kiriting. Masalan: <code>/del 45</code>", parse_mode='HTML')
         return
 
-    # Admin tekshiruvi
-    if update.message.chat.type in ['group', 'supergroup']:
-        user_status = await context.bot.get_chat_member(update.message.chat_id, update.message.from_user.id)
+    if update.effective_chat.type in ['group', 'supergroup']:
+        user_status = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
         if user_status.status not in ['administrator', 'creator']:
-            await update.message.reply_text("❌ <b>Qo'lingni tort!</b> Natijalarni faqat guruh adminlari o'zgartirishi mumkin.", parse_mode='HTML')
+            await update.effective_message.reply_text("❌ <b>Qo'lingni tort!</b> Natijalarni faqat guruh adminlari o'zgartirishi mumkin.", parse_mode='HTML')
             return
 
     match_id = context.args[0]
@@ -238,7 +222,7 @@ async def delete_match(update: Update, context: ContextTypes.DEFAULT_TYPE):
     row = cursor.fetchone()
 
     if not row:
-        await update.message.reply_text("Bunday ID raqamli o'yin topilmadi.")
+        await update.effective_message.reply_text("Bunday ID raqamli o'yin topilmadi.")
         return
 
     cursor.execute("DELETE FROM matches WHERE id = ?", (match_id,))
@@ -248,22 +232,20 @@ async def delete_match(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📺 <b>VAR QARORI: Admin aralashdi!</b>\n"
         f"ID: {match_id} bo'lgan o'yin ({html.escape(row[0])} {row[2]}:{row[3]} {html.escape(row[1])}) bazadan o'chirib tashlandi. Reytinglar qayta hisoblandi!"
     )
-    await update.message.reply_text(msg, parse_mode='HTML')
+    await update.effective_message.reply_text(msg, parse_mode='HTML')
 
-# Shaxsiy statistika
 async def player_stat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("Foydalanuvchini kiriting: <code>/stat @ali</code>", parse_mode='HTML')
+        await update.effective_message.reply_text("Foydalanuvchini kiriting: <code>/stat @ali</code>", parse_mode='HTML')
         return
     
     player = context.args[0]
     stats = get_all_stats()
     
-    # Katta-kichik harf farqini yo'qotish uchun qidiramiz
     player_key = next((k for k in stats.keys() if k.lower() == player.lower()), None)
     
     if not player_key:
-        await update.message.reply_text(f"{html.escape(player)} hali maydonga tushmagan.")
+        await update.effective_message.reply_text(f"{html.escape(player)} hali maydonga tushmagan.")
         return
 
     s = stats[player_key]
@@ -277,12 +259,11 @@ async def player_stat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"⚽️ To'plar nisbati: <b>{s['gf']} - {s['ga']}</b> (Farq: {gd})\n"
         f"📊 Koeffitsiyent: <b>{ppg:.2f}</b>"
     )
-    await update.message.reply_text(text, parse_mode='HTML')
+    await update.effective_message.reply_text(text, parse_mode='HTML')
 
-# O'zaro tarix (H2H)
 async def h2h_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:
-        await update.message.reply_text("Ikkita o'yinchini kiriting: <code>/h2h @men @ali</code>", parse_mode='HTML')
+        await update.effective_message.reply_text("Ikkita o'yinchini kiriting: <code>/h2h @men @ali</code>", parse_mode='HTML')
         return
 
     p1, p2 = context.args[0], context.args[1]
@@ -294,7 +275,7 @@ async def h2h_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     games = cursor.fetchall()
     if not games:
-        await update.message.reply_text(f"{html.escape(p1)} va {html.escape(p2)} o'rtasida hali o'yin bo'lmagan.")
+        await update.effective_message.reply_text(f"{html.escape(p1)} va {html.escape(p2)} o'rtasida hali o'yin bo'lmagan.")
         return
 
     p1_wins = p2_wins = draws = 0
@@ -315,16 +296,13 @@ async def h2h_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"😭 {html.escape(p2)} g'alabasi: <b>{p2_wins} ta</b>\n"
         f"🤝 Durang: <b>{draws} ta</b>"
     )
-    await update.message.reply_text(text, parse_mode='HTML')
+    await update.effective_message.reply_text(text, parse_mode='HTML')
 
-# ==========================================
-# 4. AVTOMATIK XABAR YUBORISH (HAR 3 KUNDA)
-# ==========================================
 async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
     row = cursor.fetchone()
     if not row:
-        return # Hali guruh ID si saqlanmagan
+        return 
     
     chat_id = int(row[0])
     stats = get_all_stats()
@@ -350,21 +328,16 @@ async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Avto-xabar yuborishda xatolik: {e}")
 
-# ==========================================
-# 5. ASOSIY ISHGA TUSHIRISH QISMI
-# ==========================================
 def main():
     token = os.getenv("BOT_TOKEN")
     if not token:
         print("BOT_TOKEN topilmadi!")
         return
 
-    # HTTP serverni alohida oqimda (thread) ishga tushirish (Render uchun)
     threading.Thread(target=run_dummy_server, daemon=True).start()
 
     app = Application.builder().token(token).build()
     
-    # Buyruqlar
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("jadval", show_table))
     app.add_handler(CommandHandler("tarix", match_history))
@@ -372,10 +345,8 @@ def main():
     app.add_handler(CommandHandler("h2h", h2h_stats))
     app.add_handler(CommandHandler("del", delete_match))
     
-    # Matnli xabarlarni ushlash
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_match))
 
-    # Avto-xabarni har 3 kunda (259200 soniya) ishga tushirish
     app.job_queue.run_repeating(auto_announce, interval=259200, first=10)
 
     print("Bot ishga tushdi...")
