@@ -401,12 +401,56 @@ async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
     stats = get_stats_by_period()
     if not stats or len(stats) < 2: return
 
+    # 1. Ochkolar bo'yicha saralash
     sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
-    top_player = html.escape(sorted_pts[0][0])
-    bottom_player = html.escape(sorted_pts[-1][0])
+    top_pts_player = html.escape(sorted_pts[0][0])
+    top_pts = sorted_pts[0][1]['pts']
+    top_wins = sorted_pts[0][1]['w']
     
-    # Random favqulodda meme yuborish
-    await send_meme(context, chat_id, RANDOM_ROASTS, top_player=top_player, bottom_player=bottom_player)
+    bottom_player = html.escape(sorted_pts[-1][0])
+    bottom_pts = sorted_pts[-1][1]['pts']
+
+    # 2. Koeffitsiyent bo'yicha saralash (Min 3 o'yin o'ynaganlar)
+    valid_ppg = {k: v for k, v in stats.items() if v['games'] >= 3}
+    if valid_ppg:
+        sorted_ppg = sorted(valid_ppg.items(), key=lambda x: (x[1]['pts'] / x[1]['games']), reverse=True)
+        top_ppg_player = html.escape(sorted_ppg[0][0])
+        top_ppg = sorted_ppg[0][1]['pts'] / sorted_ppg[0][1]['games']
+    else:
+        top_ppg_player = None
+
+    # ==========================================
+    # GIF KODLARINI SHU YERGA JOYLAYSIZ:
+    # ==========================================
+    gif_kazo = "CgACAgIAAxkBAAO-aoXaujWOQPXd6AvAX3MWb-uAgUUAAqiuAAJtRTBIAAH6foMHrf0NPQQ"
+    gif_qishloq = "CgACAgIAAxkBAAO8aoXamtCs_ekIJh7Dj7X1N7r0Z9UAAqeuAAJtRTBI4RGqc2Mp8Mk9BA"
+    gif_otib_tashla = "CgACAgIAAxkBAAPAaoXa4BGj3cO2B5AwUDDJgOCSvOkAAqquAAJtRTBIcHwysyjc8y89BA"
+
+    # Matnlar
+    msg1 = f"👑 <b>\"Meni o'zingga tenglashtirma, kazo-kazolardanman men!\"</b>\n\n📊 {top_pts_player} {top_pts} ochko ({top_wins} ta g'alaba) bilan hammadan tepada, qolganlar, ta'zim qiling!"
+    
+    if top_ppg_player:
+        msg2 = f"🚜 <b>\"Yo'ldan qoch, qishloqilar!\"</b>\n\n📈 {top_ppg_player} {top_ppg:.2f} koeffitsiyent bilan eng sifatli o'yin ko'rsatmoqda!"
+    
+    msg3 = f"🔫 <b>\"Otib tashlanglar buni!!!\"</b>\n\n📉 {bottom_player} atigi {bottom_pts} ochko bilan reyting tubida yotibdi... Otib tashlanglar, uni :)"
+
+    # Xabarlarni guruhga yuborish
+    try:
+        # 1-xabar (Kazo-kazo)
+        if gif_kazo.startswith("KAZO"): await context.bot.send_message(chat_id=chat_id, text=msg1, parse_mode='HTML')
+        else: await context.bot.send_animation(chat_id=chat_id, animation=gif_kazo, caption=msg1, parse_mode='HTML')
+        
+        # 2-xabar (Qishloqilar)
+        if top_ppg_player:
+            if gif_qishloq.startswith("QISHLOQ"): await context.bot.send_message(chat_id=chat_id, text=msg2, parse_mode='HTML')
+            else: await context.bot.send_animation(chat_id=chat_id, animation=gif_qishloq, caption=msg2, parse_mode='HTML')
+        
+        # 3-xabar (Otib tashlanglar)
+        if gif_otib_tashla.startswith("OTIB"): await context.bot.send_message(chat_id=chat_id, text=msg3, parse_mode='HTML')
+        else: await context.bot.send_animation(chat_id=chat_id, animation=gif_otib_tashla, caption=msg3, parse_mode='HTML')
+        
+    except Exception as e:
+        print(f"3 kunlik xabar yuborishda xato: {e}")
 
 def main():
     token = os.getenv("BOT_TOKEN")
