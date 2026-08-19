@@ -4,6 +4,7 @@ import re
 import html
 import threading
 import random
+import asyncio
 from datetime import datetime, timedelta, time, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from telegram import Update
@@ -54,16 +55,16 @@ conn.commit()
 
 # 1. HAFTA G'OLIBI UCHUN
 WEEKLY_WINNER_MEMES = [
-    {"text": "👑 <b>HAFTA QIROLI!</b>\nUshbu haftaning mutlaq qiroli - {player}! Qolganlar, tiz cho'king!", "gif": "CgACAgQAAxkBAAOAaoWEcnZZgVgOsrVxd_PX4seubZoAAkEHAAKu7FVSPErBb2CcrM09BA"},
-    {"text": "🏆 <b>DARS BERILDI!</b>\n{player} bu hafta hammangizga darsingizni berdi. Joystikni qanday ishlashni o'rganib olinglar!", "gif": "CgACAgQAAxkBAAOCaoWEqtoeWFu1xnKnsWzjP12DlX8AAiwDAAKW0RVTG3af1IcEHpk9BA"},
-    {"text": "🥇 <b>CHEMPION!</b>\nHafta chempioni - {player}! Boshqalar esa faqat tomoshabin bo'lishdi.", "gif": "CgACAgQAAxkBAAOEaoWFKvYSr0Budf44-r-Jhcora_0AAkEDAAJblj1T4ui_iIOX0Us9BA"}
+    {"text": "👑 <b>HAFTA QIROLI!</b>\nUshbu haftaning mutlaq qiroli - {player}!\n<i>({reason})</i>\nQolganlar, tiz cho'king!", "gif": "CgACAgQAAxkBAAOAaoWEcnZZgVgOsrVxd_PX4seubZoAAkEHAAKu7FVSPErBb2CcrM09BA"},
+    {"text": "🏆 <b>DARS BERILDI!</b>\n{player} bu hafta hammangizga darsingizni berdi.\n<i>({reason})</i>\nJoystikni qanday ishlashni o'rganib olinglar!", "gif": "CgACAgQAAxkBAAOCaoWEqtoeWFu1xnKnsWzjP12DlX8AAiwDAAKW0RVTG3af1IcEHpk9BA"},
+    {"text": "🥇 <b>CHEMPION!</b>\nHafta chempioni - {player}!\n<i>({reason})</i>\nBoshqalar esa faqat tomoshabin bo'lishdi.", "gif": "CgACAgQAAxkBAAOEaoWFKvYSr0Budf44-r-Jhcora_0AAkEDAAJblj1T4ui_iIOX0Us9BA"}
 ]
 
 # 2. KUN G'OLIBI UCHUN
 DAILY_WINNER_MEMES = [
-    {"text": "🌟 <b>KUN YULDUZI!</b>\nBugunning mutlaq yulduzi - {player}! Bugun uni to'xtatib bo'lmadi.", "gif": "CgACAgQAAxkBAAOGaoWFTw4iObMjVnmuAzwxqW-IzOcAAr0DAAJZsARRN2mFveUh-i49BA"},
-    {"text": "🔥 <b>YONDIRDI!</b>\n{player} bugun maydonni yondirdi! Qolganlar esa faqat changini yutdi.", "gif": "CgACAgQAAxkBAAOIaoWF4XQivBqH-hQaIRvsrFZeifkAAnYHAALa_JxRZmjf0mnyLTA9BA"},
-    {"text": "😎 <b>DAM OLINGLAR!</b>\nBugun {player} ning kuni bo'ldi. Raqiblar, yaxshilab dam oling, ertaga ham yutqazasizlar.", "gif": "CgACAgQAAxkBAAOKaoWGdvrDSdfiKGLrI7PzUzw7GgQAAt8JAAI6Lo1T-A0fC6Cam9o9BA"}
+    {"text": "🌟 <b>KUN YULDUZI!</b>\nBugunning mutlaq yulduzi - {player}!\n<i>({reason})</i>\nBugun uni to'xtatib bo'lmadi.", "gif": "CgACAgQAAxkBAAOGaoWFTw4iObMjVnmuAzwxqW-IzOcAAr0DAAJZsARRN2mFveUh-i49BA"},
+    {"text": "🔥 <b>YONDIRDI!</b>\n{player} bugun maydonni yondirdi!\n<i>({reason})</i>\nQolganlar esa faqat changini yutdi.", "gif": "CgACAgQAAxkBAAOIaoWF4XQivBqH-hQaIRvsrFZeifkAAnYHAALa_JxRZmjf0mnyLTA9BA"},
+    {"text": "😎 <b>DAM OLINGLAR!</b>\nBugun {player} ning kuni bo'ldi.\n<i>({reason})</i>\nRaqiblar, yaxshilab dam oling, ertaga ham yutqazasizlar.", "gif": "CgACAgQAAxkBAAOKaoWGdvrDSdfiKGLrI7PzUzw7GgQAAt8JAAI6Lo1T-A0fC6Cam9o9BA"}
 ]
 
 # 3. KUN MAG'LUBI UCHUN
@@ -71,13 +72,6 @@ DAILY_LOSER_MEMES = [
     {"text": "🗑 <b>KUN O'LJASI!</b>\nBugunning eng omadsiz o'yinchisi - {player}. Yettim deganimda... Afsus((", "gif": "CgACAgIAAxkBAAN-aoWD8jQwSS1dMwr1_cXYVwHmsHcAAo6kAAL2CDBIyh6sGt4yOw49BA"},
     {"text": "😭 <b>YIG'LAMA!</b>\n{player} bugun hamma o'yinda kaltak yedi. Yig'lama, ertaga ham shunday bo'ladi!", "gif": "CgACAgIAAxkBAAOMaoWG9VMdJvHvsq_dmrPAWrAF5zcAAsJKAAJTXNhKfOXYbF63mSo9BA"},
     {"text": "🐢 <b>TOSHBAQA!</b>\nBugunning eng sekin va omadsiz toshbaqasi - {player}. Joystikni devorga otish vaqti keldi!", "gif": "CgACAgQAAxkBAAOOaoWHEvYRQ4XAwpN6X6uDiobngTsAAtgGAAIf89xR-7P8SkDt3Eo9BA"}
-]
-
-# 4. 3 KUNLIK FAVQULODDA HOLAT (TOP va TUBDAGILAR UCHUN)
-RANDOM_ROASTS = [
-    {"text": "📈 <b>DIQQAT!</b>\n{top_player} hali ham reyting tepasida taxtda o'tiribdi! Kimdir uni tushiradimi yoki shunday yuraveradimi?", "gif": "CgACAgQAAxkBAAOQaoWHNb_IhNNlsTzbNNAE9-kqfvsAAiIDAAIFGw1TFBJVx6bJpDg9BA"},
-    {"text": "📉 <b>SHARMANDA!</b>\n{bottom_player} reyting tubida chirib yotibdi. Qachon g'alaba qozonasan o'zi yoki doim shunaqami?", "gif": "CgACAgQAAxkBAAOOaoWHEvYRQ4XAwpN6X6uDiobngTsAAtgGAAIf89xR-7P8SkDt3Eo9BA"},
-    {"text": "⚖️ <b>SARHISOB!</b>\n{top_player} hammadan qochib ketmoqda, {bottom_player} esa unga yetib olishni faqat tushida ko'rsa kerak!", "gif": "CgACAgQAAxkBAAOSaoWH6UCdjqj58deI3sR87aqXV3wAAsQLAAI0hiFQ7UmCIO1B7mk9BA"}
 ]
 
 # ==========================================
@@ -126,7 +120,6 @@ def get_stats_by_period(days=None):
 # 4. BUYRUQLAR VA FUNKSIYALAR
 # ==========================================
 
-# GIF ID sini olish uchun yordamchi funksiya (Faqat lichkada ishlaydi)
 async def get_gif_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type == 'private':
         file_id = update.effective_message.animation.file_id
@@ -370,10 +363,21 @@ async def daily_summary(context: ContextTypes.DEFAULT_TYPE):
     
     sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
     winner = html.escape(sorted_pts[0][0])
+    w_pts = sorted_pts[0][1]['pts']
+    w_gd = sorted_pts[0][1]['gf'] - sorted_pts[0][1]['ga']
+    
     loser = html.escape(sorted_pts[-1][0])
     
-    await send_meme(context, chat_id, DAILY_WINNER_MEMES, player=winner)
+    # Izoh (Reason)
+    if len(sorted_pts) > 1 and sorted_pts[0][1]['pts'] == sorted_pts[1][1]['pts']:
+        reason = f"Ochkolar teng bo'lsa-da, to'plar nisbati yaxshiroq: {w_pts} ochko, ⚽️ {w_gd:+d}"
+    else:
+        reason = f"Eng ko'p ochko yig'gan holda: {w_pts} ochko"
+    
+    await send_meme(context, chat_id, DAILY_WINNER_MEMES, player=winner, reason=reason)
+    
     if len(sorted_pts) > 1:
+        await asyncio.sleep(60) # 1 DAQIQALIK INTERVAL
         await send_meme(context, chat_id, DAILY_LOSER_MEMES, player=loser)
 
 # Har 7 kunda (Hafta g'olibi)
@@ -388,8 +392,15 @@ async def weekly_summary(context: ContextTypes.DEFAULT_TYPE):
     
     sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
     winner = html.escape(sorted_pts[0][0])
+    w_pts = sorted_pts[0][1]['pts']
+    w_gd = sorted_pts[0][1]['gf'] - sorted_pts[0][1]['ga']
     
-    await send_meme(context, chat_id, WEEKLY_WINNER_MEMES, player=winner)
+    if len(sorted_pts) > 1 and sorted_pts[0][1]['pts'] == sorted_pts[1][1]['pts']:
+        reason = f"Ochkolar teng bo'lsa-da, to'plar nisbati yaxshiroq: {w_pts} ochko, ⚽️ {w_gd:+d}"
+    else:
+        reason = f"Eng ko'p ochko yig'gan holda: {w_pts} ochko"
+    
+    await send_meme(context, chat_id, WEEKLY_WINNER_MEMES, player=winner, reason=reason)
 
 # Har 3 kunda (Favqulodda e'lon va jadvallar)
 async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
@@ -442,10 +453,12 @@ async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
         
         # 2-xabar (Qishloqilar)
         if top_ppg_player:
+            await asyncio.sleep(60) # 1 DAQIQALIK INTERVAL
             if gif_qishloq.startswith("QISHLOQ"): await context.bot.send_message(chat_id=chat_id, text=msg2, parse_mode='HTML')
             else: await context.bot.send_animation(chat_id=chat_id, animation=gif_qishloq, caption=msg2, parse_mode='HTML')
         
         # 3-xabar (Otib tashlanglar)
+        await asyncio.sleep(60) # 1 DAQIQALIK INTERVAL
         if gif_otib_tashla.startswith("OTIB"): await context.bot.send_message(chat_id=chat_id, text=msg3, parse_mode='HTML')
         else: await context.bot.send_animation(chat_id=chat_id, animation=gif_otib_tashla, caption=msg3, parse_mode='HTML')
         
