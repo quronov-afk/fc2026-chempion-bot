@@ -3,6 +3,7 @@ import sqlite3
 import re
 import html
 import threading
+import random
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from telegram import Update
@@ -25,7 +26,6 @@ def run_dummy_server():
     print(f"HTTP Server {port}-portda ishga tushdi...")
     server.serve_forever()
 
-# Ma'lumotlar bazasini sozlash (Doimiy xotira uchun)
 db_path = "/var/data/pes_stats.db" if os.path.exists("/var/data") else "pes_stats.db"
 conn = sqlite3.connect(db_path, check_same_thread=False)
 cursor = conn.cursor()
@@ -49,11 +49,48 @@ cursor.execute('''
 conn.commit()
 
 # ==========================================
-# 2. STATISTIKANI HISOBLASH (ALGORITMLAR)
+# 2. RANDOM MEMLAR VA GIFLAR BAZASI
 # ==========================================
 
-def get_all_stats():
-    cursor.execute("SELECT p1, p2, p1_score, p2_score FROM matches")
+# 1. HAFTA G'OLIBI UCHUN
+WEEKLY_WINNER_MEMES = [
+    {"text": "👑 <b>HAFTA QIROLI!</b>\nUshbu haftaning mutlaq qiroli - {player}! Qolganlar, tiz cho'king!", "gif": "GIF_KODI_SHU_YERGA_1"},
+    {"text": "🏆 <b>DARS BERILDI!</b>\n{player} bu hafta hammangizga darsingizni berdi. Joystikni qanday ishlashni o'rganib olinglar!", "gif": "GIF_KODI_SHU_YERGA_2"},
+    {"text": "🥇 <b>CHEMPION!</b>\nHafta chempioni - {player}! Boshqalar esa faqat tomoshabin bo'lishdi.", "gif": "GIF_KODI_SHU_YERGA_3"}
+]
+
+# 2. KUN G'OLIBI UCHUN
+DAILY_WINNER_MEMES = [
+    {"text": "🌟 <b>KUN YULDUZI!</b>\nBugunning mutlaq yulduzi - {player}! Bugun uni to'xtatib bo'lmadi.", "gif": "GIF_KODI_SHU_YERGA_4"},
+    {"text": "🔥 <b>YONDIRDI!</b>\n{player} bugun maydonni yondirdi! Qolganlar esa faqat changini yutdi.", "gif": "GIF_KODI_SHU_YERGA_5"},
+    {"text": "😎 <b>DAM OLINGLAR!</b>\nBugun {player} ning kuni bo'ldi. Raqiblar, yaxshilab dam oling, ertaga ham yutqazasizlar.", "gif": "GIF_KODI_SHU_YERGA_6"}
+]
+
+# 3. KUN MAG'LUBI UCHUN
+DAILY_LOSER_MEMES = [
+    {"text": "🗑 <b>KUN O'LJASI!</b>\nBugunning eng omadsiz o'yinchisi - {player}. Balki FIFA/PES senga emasdir, og'ayni?", "gif": "GIF_KODI_SHU_YERGA_7"},
+    {"text": "😭 <b>YIG'LAMA!</b>\n{player} bugun hamma o'yinda kaltak yedi. Yig'lama, ertaga ham shunday bo'ladi!", "gif": "GIF_KODI_SHU_YERGA_8"},
+    {"text": "🐢 <b>TOSHBAQA!</b>\nBugunning eng sekin va omadsiz toshbaqasi - {player}. Joystikni devorga otish vaqti keldi!", "gif": "GIF_KODI_SHU_YERGA_9"}
+]
+
+# 4. 3 KUNLIK FAVQULODDA HOLAT (TOP va TUBDAGILAR UCHUN)
+RANDOM_ROASTS = [
+    {"text": "📈 <b>DIQQAT!</b>\n{top_player} hali ham reyting tepasida taxtda o'tiribdi! Kimdir uni tushiradimi yoki shunday yuraveradimi?", "gif": "GIF_KODI_SHU_YERGA_10"},
+    {"text": "📉 <b>SHARMANDA!</b>\n{bottom_player} reyting tubida chirib yotibdi. Qachon g'alaba qozonasan o'zi yoki doim shunaqami?", "gif": "GIF_KODI_SHU_YERGA_11"},
+    {"text": "⚖️ <b>SARHISOB!</b>\n{top_player} hammadan qochib ketmoqda, {bottom_player} esa unga yetib olishni faqat tushida ko'rsa kerak!", "gif": "GIF_KODI_SHU_YERGA_12"}
+]
+
+# ==========================================
+# 3. STATISTIKANI HISOBLASH (ALGORITMLAR)
+# ==========================================
+
+def get_stats_by_period(days=None):
+    if days:
+        time_limit = datetime.now() - timedelta(days=days)
+        cursor.execute("SELECT p1, p2, p1_score, p2_score FROM matches WHERE date >= ?", (time_limit,))
+    else:
+        cursor.execute("SELECT p1, p2, p1_score, p2_score FROM matches")
+        
     matches = cursor.fetchall()
     stats = {}
     
@@ -86,8 +123,14 @@ def get_all_stats():
     return stats
 
 # ==========================================
-# 3. BUYRUQLAR VA FUNKSIYALAR
+# 4. BUYRUQLAR VA FUNKSIYALAR
 # ==========================================
+
+# GIF ID sini olish uchun yordamchi funksiya (Faqat lichkada ishlaydi)
+async def get_gif_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type == 'private':
+        file_id = update.effective_message.animation.file_id
+        await update.effective_message.reply_text(f"Bu GIF ning ID raqami:\n\n<code>{file_id}</code>\n\n(Shu kodni ustiga bosib nusxalab oling)", parse_mode='HTML')
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
@@ -158,7 +201,7 @@ async def handle_match(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(msg, parse_mode='HTML')
 
 async def show_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    stats = get_all_stats()
+    stats = get_stats_by_period()
     if not stats:
         await update.effective_message.reply_text("Hali maydonga hech kim tushmadi. Qani, kim boshlab beradi? ⚽️")
         return
@@ -240,7 +283,7 @@ async def player_stat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     player = context.args[0]
-    stats = get_all_stats()
+    stats = get_stats_by_period()
     
     player_key = next((k for k in stats.keys() if k.lower() == player.lower()), None)
     
@@ -298,35 +341,72 @@ async def h2h_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.effective_message.reply_text(text, parse_mode='HTML')
 
+# ==========================================
+# 5. AVTOMATIK XABARLAR (KUNLIK, HAFTALIK, 3 KUNLIK)
+# ==========================================
+
+async def send_meme(context, chat_id, meme_list, **kwargs):
+    meme = random.choice(meme_list)
+    text = meme["text"].format(**kwargs)
+    gif_id = meme["gif"]
+    
+    try:
+        if gif_id.startswith("GIF_KODI_"):
+            await context.bot.send_message(chat_id=chat_id, text=text, parse_mode='HTML')
+        else:
+            await context.bot.send_animation(chat_id=chat_id, animation=gif_id, caption=text, parse_mode='HTML')
+    except Exception as e:
+        print(f"Meme yuborishda xato: {e}")
+
+# Har 24 soatda (Kun g'olibi va mag'lubi)
+async def daily_summary(context: ContextTypes.DEFAULT_TYPE):
+    cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
+    row = cursor.fetchone()
+    if not row: return 
+    chat_id = int(row[0])
+    
+    stats = get_stats_by_period(days=1)
+    if not stats: return # Bugun o'yin bo'lmagan
+    
+    sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
+    winner = html.escape(sorted_pts[0][0])
+    loser = html.escape(sorted_pts[-1][0])
+    
+    await send_meme(context, chat_id, DAILY_WINNER_MEMES, player=winner)
+    if len(sorted_pts) > 1:
+        await send_meme(context, chat_id, DAILY_LOSER_MEMES, player=loser)
+
+# Har 7 kunda (Hafta g'olibi)
+async def weekly_summary(context: ContextTypes.DEFAULT_TYPE):
+    cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
+    row = cursor.fetchone()
+    if not row: return 
+    chat_id = int(row[0])
+    
+    stats = get_stats_by_period(days=7)
+    if not stats: return
+    
+    sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
+    winner = html.escape(sorted_pts[0][0])
+    
+    await send_meme(context, chat_id, WEEKLY_WINNER_MEMES, player=winner)
+
+# Har 3 kunda (Favqulodda e'lon va jadvallar)
 async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
     row = cursor.fetchone()
-    if not row:
-        return 
-    
+    if not row: return 
     chat_id = int(row[0])
-    stats = get_all_stats()
-    if not stats:
-        return
+    
+    stats = get_stats_by_period()
+    if not stats or len(stats) < 2: return
 
     sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
+    top_player = html.escape(sorted_pts[0][0])
+    bottom_player = html.escape(sorted_pts[-1][0])
     
-    text = (
-        "🚨 <b>Uyg'oning, kiber-atletlar! 3 kunlik sarhisob vaqti keldi!</b> 🚨\n\n"
-        "Kim formaga kirdi, kim pastga sho'ng'idi? Qani, reytinglarga qaraymiz...\n\n"
-        "🏆 <b>TOP-3 (Ochkolar):</b>\n<pre>"
-    )
-    
-    for idx, (player, s) in enumerate(sorted_pts[:3], 1):
-        p_esc = html.escape(player).ljust(12)[:12]
-        text += f"{idx}. {p_esc} | {s['pts']} o\n"
-    
-    text += "</pre>\n🎮 Joystiklarni qizdiring, bugun kim kimni yanchib tashlaydi? To'liq jadvalni ko'rish uchun /jadval ni bosing."
-    
-    try:
-        await context.bot.send_message(chat_id=chat_id, text=text, parse_mode='HTML')
-    except Exception as e:
-        print(f"Avto-xabar yuborishda xatolik: {e}")
+    # Random favqulodda meme yuborish
+    await send_meme(context, chat_id, RANDOM_ROASTS, top_player=top_player, bottom_player=bottom_player)
 
 def main():
     token = os.getenv("BOT_TOKEN")
@@ -345,9 +425,15 @@ def main():
     app.add_handler(CommandHandler("h2h", h2h_stats))
     app.add_handler(CommandHandler("del", delete_match))
     
+    # GIF ID aniqlash (Faqat lichkada ishlaydi)
+    app.add_handler(MessageHandler(filters.ANIMATION, get_gif_id))
+    
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_match))
 
-    app.job_queue.run_repeating(auto_announce, interval=259200, first=10)
+    # Taymerlar (Sekund hisobida)
+    app.job_queue.run_repeating(daily_summary, interval=86400, first=86400) # Har 24 soatda
+    app.job_queue.run_repeating(auto_announce, interval=259200, first=259200) # Har 3 kunda
+    app.job_queue.run_repeating(weekly_summary, interval=604800, first=604800) # Har 7 kunda
 
     print("Bot ishga tushdi...")
     app.run_polling()
