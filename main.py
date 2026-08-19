@@ -26,8 +26,9 @@ def run_dummy_server():
     print(f"HTTP Server {port}-portda ishga tushdi...")
     server.serve_forever()
 
-# Ma'lumotlar bazasini sozlash (Faqat matches va settings jadvallari)
-conn = sqlite3.connect("pes_stats.db", check_same_thread=False)
+# Ma'lumotlar bazasini sozlash (Doimiy xotira uchun)
+db_path = "/var/data/pes_stats.db" if os.path.exists("/var/data") else "pes_stats.db"
+conn = sqlite3.connect(db_path, check_same_thread=False)
 cursor = conn.cursor()
 
 cursor.execute('''
