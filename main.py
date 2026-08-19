@@ -465,6 +465,51 @@ async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"3 kunlik xabar yuborishda xato: {e}")
 
+# Har kuni 16:00 da (Jangga chorlov)
+async def daily_provocation(context: ContextTypes.DEFAULT_TYPE):
+    cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
+    row = cursor.fetchone()
+    if not row: return 
+    chat_id = int(row[0])
+
+    stats = get_stats_by_period()
+    if not stats or len(stats) < 2:
+        return # Agar o'yinchilar yetarli bo'lmasa, indamaydi
+
+    sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
+    top1 = html.escape(sorted_pts[0][0])
+    bottom = html.escape(sorted_pts[-1][0])
+    
+    # Matnni shakllantirish
+    msg = f"{top1} bugun seni kuning emas, alvasti!\n"
+    
+    if len(sorted_pts) >= 3:
+        top2 = html.escape(sorted_pts[1][0])
+        msg += f"{top2} lallayma, {top1} ni yutishga duxing yetmaydimi?\n"
+        
+    msg += f"{bottom} odam bo'maysan, san. San odam bo'maysan!"
+
+    # ==========================================
+    # 5 TA GIF KODINI SHU YERGA JOYLAYSIZ:
+    # ==========================================
+    PROVOCATION_GIFS = [
+        "CgACAgIAAxkBAAPSaoXtV4ObWISdS22M5bnctKMhMp8AAu8uAALJZdhLxChEqBW77G49BA",
+        "CgACAgIAAxkBAAPQaoXtECWaUNM94OLb5JgofX5kBK4AAlpDAAIBqoFJnwedkRUYrPw9BA",
+        "CgACAgIAAxkBAAPMaoXszpxA2B4nwpAlUF5vyFxHoSMAAuaNAAJVUjhKnmpsH2xmho09BA",
+        "CgACAgQAAxkBAAPKaoXsdFqMNM4xLwlBtZk8U7EEc84AAtkLAAJE7UlQ0YObLgABdEplPQQ",
+        "CgACAgIAAxkBAAPXaoXwI3rSOzFAE4qks7wYU6W5GP0AAvggAAKNo_hIrUSBpx_YY809BA"
+    ]
+    
+    gif_chaqiruv = random.choice(PROVOCATION_GIFS)
+
+    try:
+        if gif_chaqiruv.startswith("GIF_KODI"):
+            await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode='HTML')
+        else:
+            await context.bot.send_animation(chat_id=chat_id, animation=gif_chaqiruv, caption=msg, parse_mode='HTML')
+    except Exception as e:
+        print(f"16:00 chaqiruv yuborishda xato: {e}")
+
 def main():
     token = os.getenv("BOT_TOKEN")
     if not token:
@@ -487,19 +532,23 @@ def main():
     
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_match))
 
-    # O'zbekiston vaqti (UTC+5)
+   # O'zbekiston vaqti (UTC+5)
     tz_uz = timezone(timedelta(hours=5))
     
-    # Soat 23:00 ni belgilash
+    # Soatlar: 23:00 va 16:00 ni belgilash
     time_23 = time(hour=23, minute=0, tzinfo=tz_uz)
+    time_16 = time(hour=16, minute=0, tzinfo=tz_uz)
     
     # 1. Kunlik sarhisob (Har kuni 23:00 da)
     app.job_queue.run_daily(daily_summary, time=time_23)
     
     # 2. Haftalik sarhisob (Yakshanba kuni 23:00 da) -> 6 = Yakshanba
     app.job_queue.run_daily(weekly_summary, time=time_23, days=(6,))
+
+    # 3. Har kuni 16:00 da (Jangga chorlov)
+    app.job_queue.run_daily(daily_provocation, time=time_16)
     
-    # 3. 3 kunlik kutilmagan mem (Har 3 kunda 17:00 da)
+    # 4. 3 kunlik kutilmagan mem (Har 3 kunda 17:00 da)
     now = datetime.now(tz_uz)
     first_17 = now.replace(hour=17, minute=0, second=0, microsecond=0)
     if now > first_17:
