@@ -54,30 +54,30 @@ conn.commit()
 
 # 1. HAFTA G'OLIBI UCHUN
 WEEKLY_WINNER_MEMES = [
-    {"text": "👑 <b>HAFTA QIROLI!</b>\nUshbu haftaning mutlaq qiroli - {player}! Qolganlar, tiz cho'king!", "gif": "GIF_KODI_SHU_YERGA_1"},
-    {"text": "🏆 <b>DARS BERILDI!</b>\n{player} bu hafta hammangizga darsingizni berdi. Joystikni qanday ishlashni o'rganib olinglar!", "gif": "GIF_KODI_SHU_YERGA_2"},
-    {"text": "🥇 <b>CHEMPION!</b>\nHafta chempioni - {player}! Boshqalar esa faqat tomoshabin bo'lishdi.", "gif": "GIF_KODI_SHU_YERGA_3"}
+    {"text": "👑 <b>HAFTA QIROLI!</b>\nUshbu haftaning mutlaq qiroli - {player}! Qolganlar, tiz cho'king!", "gif": "CgACAgQAAxkBAAOAaoWEcnZZgVgOsrVxd_PX4seubZoAAkEHAAKu7FVSPErBb2CcrM09BA"},
+    {"text": "🏆 <b>DARS BERILDI!</b>\n{player} bu hafta hammangizga darsingizni berdi. Joystikni qanday ishlashni o'rganib olinglar!", "gif": "CgACAgQAAxkBAAOCaoWEqtoeWFu1xnKnsWzjP12DlX8AAiwDAAKW0RVTG3af1IcEHpk9BA"},
+    {"text": "🥇 <b>CHEMPION!</b>\nHafta chempioni - {player}! Boshqalar esa faqat tomoshabin bo'lishdi.", "gif": "CgACAgQAAxkBAAOEaoWFKvYSr0Budf44-r-Jhcora_0AAkEDAAJblj1T4ui_iIOX0Us9BA"}
 ]
 
 # 2. KUN G'OLIBI UCHUN
 DAILY_WINNER_MEMES = [
-    {"text": "🌟 <b>KUN YULDUZI!</b>\nBugunning mutlaq yulduzi - {player}! Bugun uni to'xtatib bo'lmadi.", "gif": "GIF_KODI_SHU_YERGA_4"},
-    {"text": "🔥 <b>YONDIRDI!</b>\n{player} bugun maydonni yondirdi! Qolganlar esa faqat changini yutdi.", "gif": "GIF_KODI_SHU_YERGA_5"},
-    {"text": "😎 <b>DAM OLINGLAR!</b>\nBugun {player} ning kuni bo'ldi. Raqiblar, yaxshilab dam oling, ertaga ham yutqazasizlar.", "gif": "GIF_KODI_SHU_YERGA_6"}
+    {"text": "🌟 <b>KUN YULDUZI!</b>\nBugunning mutlaq yulduzi - {player}! Bugun uni to'xtatib bo'lmadi.", "gif": "CgACAgQAAxkBAAOGaoWFTw4iObMjVnmuAzwxqW-IzOcAAr0DAAJZsARRN2mFveUh-i49BA"},
+    {"text": "🔥 <b>YONDIRDI!</b>\n{player} bugun maydonni yondirdi! Qolganlar esa faqat changini yutdi.", "gif": "CgACAgQAAxkBAAOIaoWF4XQivBqH-hQaIRvsrFZeifkAAnYHAALa_JxRZmjf0mnyLTA9BA"},
+    {"text": "😎 <b>DAM OLINGLAR!</b>\nBugun {player} ning kuni bo'ldi. Raqiblar, yaxshilab dam oling, ertaga ham yutqazasizlar.", "gif": "CgACAgQAAxkBAAOKaoWGdvrDSdfiKGLrI7PzUzw7GgQAAt8JAAI6Lo1T-A0fC6Cam9o9BA"}
 ]
 
 # 3. KUN MAG'LUBI UCHUN
 DAILY_LOSER_MEMES = [
-    {"text": "🗑 <b>KUN O'LJASI!</b>\nBugunning eng omadsiz o'yinchisi - {player}. Balki FIFA/PES senga emasdir, og'ayni?", "gif": "GIF_KODI_SHU_YERGA_7"},
-    {"text": "😭 <b>YIG'LAMA!</b>\n{player} bugun hamma o'yinda kaltak yedi. Yig'lama, ertaga ham shunday bo'ladi!", "gif": "GIF_KODI_SHU_YERGA_8"},
-    {"text": "🐢 <b>TOSHBAQA!</b>\nBugunning eng sekin va omadsiz toshbaqasi - {player}. Joystikni devorga otish vaqti keldi!", "gif": "GIF_KODI_SHU_YERGA_9"}
+    {"text": "🗑 <b>KUN O'LJASI!</b>\nBugunning eng omadsiz o'yinchisi - {player}. Yettim deganimda... Afsus((", "gif": "CgACAgIAAxkBAAN-aoWD8jQwSS1dMwr1_cXYVwHmsHcAAo6kAAL2CDBIyh6sGt4yOw49BA"},
+    {"text": "😭 <b>YIG'LAMA!</b>\n{player} bugun hamma o'yinda kaltak yedi. Yig'lama, ertaga ham shunday bo'ladi!", "gif": "CgACAgIAAxkBAAOMaoWG9VMdJvHvsq_dmrPAWrAF5zcAAsJKAAJTXNhKfOXYbF63mSo9BA"},
+    {"text": "🐢 <b>TOSHBAQA!</b>\nBugunning eng sekin va omadsiz toshbaqasi - {player}. Joystikni devorga otish vaqti keldi!", "gif": "CgACAgQAAxkBAAOOaoWHEvYRQ4XAwpN6X6uDiobngTsAAtgGAAIf89xR-7P8SkDt3Eo9BA"}
 ]
 
 # 4. 3 KUNLIK FAVQULODDA HOLAT (TOP va TUBDAGILAR UCHUN)
 RANDOM_ROASTS = [
-    {"text": "📈 <b>DIQQAT!</b>\n{top_player} hali ham reyting tepasida taxtda o'tiribdi! Kimdir uni tushiradimi yoki shunday yuraveradimi?", "gif": "GIF_KODI_SHU_YERGA_10"},
-    {"text": "📉 <b>SHARMANDA!</b>\n{bottom_player} reyting tubida chirib yotibdi. Qachon g'alaba qozonasan o'zi yoki doim shunaqami?", "gif": "GIF_KODI_SHU_YERGA_11"},
-    {"text": "⚖️ <b>SARHISOB!</b>\n{top_player} hammadan qochib ketmoqda, {bottom_player} esa unga yetib olishni faqat tushida ko'rsa kerak!", "gif": "GIF_KODI_SHU_YERGA_12"}
+    {"text": "📈 <b>DIQQAT!</b>\n{top_player} hali ham reyting tepasida taxtda o'tiribdi! Kimdir uni tushiradimi yoki shunday yuraveradimi?", "gif": "CgACAgQAAxkBAAOQaoWHNb_IhNNlsTzbNNAE9-kqfvsAAiIDAAIFGw1TFBJVx6bJpDg9BA"},
+    {"text": "📉 <b>SHARMANDA!</b>\n{bottom_player} reyting tubida chirib yotibdi. Qachon g'alaba qozonasan o'zi yoki doim shunaqami?", "gif": "CgACAgQAAxkBAAOOaoWHEvYRQ4XAwpN6X6uDiobngTsAAtgGAAIf89xR-7P8SkDt3Eo9BA"},
+    {"text": "⚖️ <b>SARHISOB!</b>\n{top_player} hammadan qochib ketmoqda, {bottom_player} esa unga yetib olishni faqat tushida ko'rsa kerak!", "gif": "CgACAgQAAxkBAAOSaoWH6UCdjqj58deI3sR87aqXV3wAAsQLAAI0hiFQ7UmCIO1B7mk9BA"}
 ]
 
 # ==========================================
