@@ -208,7 +208,7 @@ async def match_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = cursor.fetchall()
 
     if not rows:
-        await update.message.reply_text("Oxirgi 1 haftada hech qanday o'yin bo'lmadi. 😴")
+        await update.effective_message.reply_text("Oxirgi 1 haftada hech qanday o'yin bo'lmadi. 😴")
         return
 
     text = "📜 <b>OXIRGI 7 KUNLIK QONLI JANGLAR:</b>\n\n<pre>"
@@ -218,7 +218,7 @@ async def match_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text += f"[ID: {r[0]}] {p1_esc} {r[3]}:{r[4]} {p2_esc}\n"
     text += "</pre>"
 
-    await update.message.reply_text(text, parse_mode='HTML')
+    await update.effective_message.reply_text(text, parse_mode='HTML')
 
 # Xatoni o'chirish (Faqat Admin)
 async def delete_match(update: Update, context: ContextTypes.DEFAULT_TYPE):
