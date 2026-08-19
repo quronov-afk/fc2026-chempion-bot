@@ -53,21 +53,18 @@ conn.commit()
 # 2. RANDOM MEMLAR VA GIFLAR BAZASI
 # ==========================================
 
-# 1. HAFTA G'OLIBI UCHUN
 WEEKLY_WINNER_MEMES = [
     {"text": "👑 <b>HAFTA QIROLI!</b>\nUshbu haftaning mutlaq qiroli - {player}!\n<i>({reason})</i>\nQolganlar, tiz cho'king!", "gif": "CgACAgQAAxkBAAOAaoWEcnZZgVgOsrVxd_PX4seubZoAAkEHAAKu7FVSPErBb2CcrM09BA"},
     {"text": "🏆 <b>DARS BERILDI!</b>\n{player} bu hafta hammangizga darsingizni berdi.\n<i>({reason})</i>\nJoystikni qanday ishlashni o'rganib olinglar!", "gif": "CgACAgQAAxkBAAOCaoWEqtoeWFu1xnKnsWzjP12DlX8AAiwDAAKW0RVTG3af1IcEHpk9BA"},
     {"text": "🥇 <b>CHEMPION!</b>\nHafta chempioni - {player}!\n<i>({reason})</i>\nBoshqalar esa faqat tomoshabin bo'lishdi.", "gif": "CgACAgQAAxkBAAOEaoWFKvYSr0Budf44-r-Jhcora_0AAkEDAAJblj1T4ui_iIOX0Us9BA"}
 ]
 
-# 2. KUN G'OLIBI UCHUN
 DAILY_WINNER_MEMES = [
     {"text": "🌟 <b>KUN YULDUZI!</b>\nBugunning mutlaq yulduzi - {player}!\n<i>({reason})</i>\nBugun uni to'xtatib bo'lmadi.", "gif": "CgACAgQAAxkBAAOGaoWFTw4iObMjVnmuAzwxqW-IzOcAAr0DAAJZsARRN2mFveUh-i49BA"},
     {"text": "🔥 <b>YONDIRDI!</b>\n{player} bugun maydonni yondirdi!\n<i>({reason})</i>\nQolganlar esa faqat changini yutdi.", "gif": "CgACAgQAAxkBAAOIaoWF4XQivBqH-hQaIRvsrFZeifkAAnYHAALa_JxRZmjf0mnyLTA9BA"},
     {"text": "😎 <b>DAM OLINGLAR!</b>\nBugun {player} ning kuni bo'ldi.\n<i>({reason})</i>\nRaqiblar, yaxshilab dam oling, ertaga ham yutqazasizlar.", "gif": "CgACAgQAAxkBAAOKaoWGdvrDSdfiKGLrI7PzUzw7GgQAAt8JAAI6Lo1T-A0fC6Cam9o9BA"}
 ]
 
-# 3. KUN MAG'LUBI UCHUN
 DAILY_LOSER_MEMES = [
     {"text": "🗑 <b>KUN O'LJASI!</b>\nBugunning eng omadsiz o'yinchisi - {player}. Yettim deganimda... Afsus((", "gif": "CgACAgIAAxkBAAN-aoWD8jQwSS1dMwr1_cXYVwHmsHcAAo6kAAL2CDBIyh6sGt4yOw49BA"},
     {"text": "😭 <b>YIG'LAMA!</b>\n{player} bugun hamma o'yinda kaltak yedi. Yig'lama, ertaga ham shunday bo'ladi!", "gif": "CgACAgIAAxkBAAOMaoWG9VMdJvHvsq_dmrPAWrAF5zcAAsJKAAJTXNhKfOXYbF63mSo9BA"},
@@ -78,10 +75,18 @@ DAILY_LOSER_MEMES = [
 # 3. STATISTIKANI HISOBLASH (ALGORITMLAR)
 # ==========================================
 
-def get_stats_by_period(days=None):
-    if days:
-        time_limit = datetime.now() - timedelta(days=days)
-        cursor.execute("SELECT p1, p2, p1_score, p2_score FROM matches WHERE date >= ?", (time_limit,))
+def get_stats_by_period(days=None, today_only=False):
+    tz_uz = timezone(timedelta(hours=5))
+    now_uz = datetime.now(tz_uz)
+    
+    if today_only:
+        # Faqat bugungi kun (O'zbekiston vaqti bilan 00:00 dan boshlab)
+        start_uz = now_uz.replace(hour=0, minute=0, second=0, microsecond=0)
+        start_utc = start_uz.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+        cursor.execute("SELECT p1, p2, p1_score, p2_score FROM matches WHERE date >= ?", (start_utc,))
+    elif days:
+        start_utc = (datetime.utcnow() - timedelta(days=days)).strftime('%Y-%m-%d %H:%M:%S')
+        cursor.execute("SELECT p1, p2, p1_score, p2_score FROM matches WHERE date >= ?", (start_utc,))
     else:
         cursor.execute("SELECT p1, p2, p1_score, p2_score FROM matches")
         
@@ -335,7 +340,7 @@ async def h2h_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(text, parse_mode='HTML')
 
 # ==========================================
-# 5. AVTOMATIK XABARLAR (KUNLIK, HAFTALIK, 3 KUNLIK)
+# 5. AVTOMATIK XABARLAR (KUNLIK, HAFTALIK, 3 KUNLIK, DANGASALAR)
 # ==========================================
 
 async def send_meme(context, chat_id, meme_list, **kwargs):
@@ -351,15 +356,15 @@ async def send_meme(context, chat_id, meme_list, **kwargs):
     except Exception as e:
         print(f"Meme yuborishda xato: {e}")
 
-# Har 24 soatda (Kun g'olibi va mag'lubi)
+# Har kuni 23:00 da (Faqat BUGUNGI natijalar)
 async def daily_summary(context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
     row = cursor.fetchone()
     if not row: return 
     chat_id = int(row[0])
     
-    stats = get_stats_by_period(days=1)
-    if not stats: return # Bugun o'yin bo'lmagan
+    stats = get_stats_by_period(today_only=True)
+    if not stats: return # Bugun umuman o'yin bo'lmagan
     
     sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
     winner = html.escape(sorted_pts[0][0])
@@ -368,7 +373,6 @@ async def daily_summary(context: ContextTypes.DEFAULT_TYPE):
     
     loser = html.escape(sorted_pts[-1][0])
     
-    # Izoh (Reason)
     if len(sorted_pts) > 1 and sorted_pts[0][1]['pts'] == sorted_pts[1][1]['pts']:
         reason = f"Ochkolar teng bo'lsa-da, to'plar nisbati yaxshiroq: {w_pts} ochko, ⚽️ {w_gd:+d}"
     else:
@@ -377,10 +381,10 @@ async def daily_summary(context: ContextTypes.DEFAULT_TYPE):
     await send_meme(context, chat_id, DAILY_WINNER_MEMES, player=winner, reason=reason)
     
     if len(sorted_pts) > 1:
-        await asyncio.sleep(60) # 1 DAQIQALIK INTERVAL
+        await asyncio.sleep(60)
         await send_meme(context, chat_id, DAILY_LOSER_MEMES, player=loser)
 
-# Har 7 kunda (Hafta g'olibi)
+# Har Yakshanba 20:00 da (Oxirgi 7 kun natijalari)
 async def weekly_summary(context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
     row = cursor.fetchone()
@@ -402,17 +406,16 @@ async def weekly_summary(context: ContextTypes.DEFAULT_TYPE):
     
     await send_meme(context, chat_id, WEEKLY_WINNER_MEMES, player=winner, reason=reason)
 
-# Har 3 kunda (Favqulodda e'lon va jadvallar)
+# Har 3 kunda 17:00 da (Oxirgi 3 kun natijalari)
 async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
     row = cursor.fetchone()
     if not row: return 
     chat_id = int(row[0])
     
-    stats = get_stats_by_period()
-    if not stats or len(stats) < 2: return
+    stats = get_stats_by_period(days=3)
+    if not stats or len(stats) < 2: return # 3 kunda yetarli o'yin bo'lmagan
 
-    # 1. Ochkolar bo'yicha saralash
     sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
     top_pts_player = html.escape(sorted_pts[0][0])
     top_pts = sorted_pts[0][1]['pts']
@@ -421,7 +424,6 @@ async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
     bottom_player = html.escape(sorted_pts[-1][0])
     bottom_pts = sorted_pts[-1][1]['pts']
 
-    # 2. Koeffitsiyent bo'yicha saralash (Min 3 o'yin o'ynaganlar)
     valid_ppg = {k: v for k, v in stats.items() if v['games'] >= 3}
     if valid_ppg:
         sorted_ppg = sorted(valid_ppg.items(), key=lambda x: (x[1]['pts'] / x[1]['games']), reverse=True)
@@ -430,14 +432,10 @@ async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
     else:
         top_ppg_player = None
 
-    # ==========================================
-    # GIF KODLARINI SHU YERGA JOYLAYSIZ:
-    # ==========================================
     gif_kazo = "CgACAgIAAxkBAAO-aoXaujWOQPXd6AvAX3MWb-uAgUUAAqiuAAJtRTBIAAH6foMHrf0NPQQ"
     gif_qishloq = "CgACAgIAAxkBAAO8aoXamtCs_ekIJh7Dj7X1N7r0Z9UAAqeuAAJtRTBI4RGqc2Mp8Mk9BA"
     gif_otib_tashla = "CgACAgIAAxkBAAPAaoXa4BGj3cO2B5AwUDDJgOCSvOkAAqquAAJtRTBIcHwysyjc8y89BA"
 
-    # Matnlar
     msg1 = f"👑 <b>\"Meni o'zingga tenglashtirma, kazo-kazolardanman men!\"</b>\n\n📊 {top_pts_player} {top_pts} ochko ({top_wins} ta g'alaba) bilan hammadan tepada, qolganlar, ta'zim qiling!"
     
     if top_ppg_player:
@@ -445,53 +443,38 @@ async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
     
     msg3 = f"🔫 <b>\"Otib tashlanglar buni!!!\"</b>\n\n📉 {bottom_player} atigi {bottom_pts} ochko bilan reyting tubida yotibdi... Otib tashlanglar, uni :)"
 
-    # Xabarlarni guruhga yuborish
     try:
-        # 1-xabar (Kazo-kazo)
-        if gif_kazo.startswith("KAZO"): await context.bot.send_message(chat_id=chat_id, text=msg1, parse_mode='HTML')
-        else: await context.bot.send_animation(chat_id=chat_id, animation=gif_kazo, caption=msg1, parse_mode='HTML')
+        await context.bot.send_animation(chat_id=chat_id, animation=gif_kazo, caption=msg1, parse_mode='HTML')
         
-        # 2-xabar (Qishloqilar)
         if top_ppg_player:
-            await asyncio.sleep(60) # 1 DAQIQALIK INTERVAL
-            if gif_qishloq.startswith("QISHLOQ"): await context.bot.send_message(chat_id=chat_id, text=msg2, parse_mode='HTML')
-            else: await context.bot.send_animation(chat_id=chat_id, animation=gif_qishloq, caption=msg2, parse_mode='HTML')
+            await asyncio.sleep(60)
+            await context.bot.send_animation(chat_id=chat_id, animation=gif_qishloq, caption=msg2, parse_mode='HTML')
         
-        # 3-xabar (Otib tashlanglar)
-        await asyncio.sleep(60) # 1 DAQIQALIK INTERVAL
-        if gif_otib_tashla.startswith("OTIB"): await context.bot.send_message(chat_id=chat_id, text=msg3, parse_mode='HTML')
-        else: await context.bot.send_animation(chat_id=chat_id, animation=gif_otib_tashla, caption=msg3, parse_mode='HTML')
-        
+        await asyncio.sleep(60)
+        await context.bot.send_animation(chat_id=chat_id, animation=gif_otib_tashla, caption=msg3, parse_mode='HTML')
     except Exception as e:
         print(f"3 kunlik xabar yuborishda xato: {e}")
 
-# Har kuni 16:00 da (Jangga chorlov)
+# Har kuni 16:00 da (Jangga chorlov - UMUMIY reyting asosida)
 async def daily_provocation(context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
     row = cursor.fetchone()
     if not row: return 
     chat_id = int(row[0])
 
-    stats = get_stats_by_period()
-    if not stats or len(stats) < 2:
-        return # Agar o'yinchilar yetarli bo'lmasa, indamaydi
+    stats = get_stats_by_period() # Umumiy tarix
+    if not stats or len(stats) < 2: return
 
     sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
     top1 = html.escape(sorted_pts[0][0])
     bottom = html.escape(sorted_pts[-1][0])
     
-    # Matnni shakllantirish
     msg = f"{top1} bugun seni kuning emas, alvasti!\n"
-    
     if len(sorted_pts) >= 3:
         top2 = html.escape(sorted_pts[1][0])
         msg += f"{top2} lallayma, {top1} ni yutishga duxing yetmaydimi?\n"
-        
     msg += f"{bottom} odam bo'maysan, san. San odam bo'maysan!"
 
-    # ==========================================
-    # 5 TA GIF KODINI SHU YERGA JOYLAYSIZ:
-    # ==========================================
     PROVOCATION_GIFS = [
         "CgACAgIAAxkBAAPSaoXtV4ObWISdS22M5bnctKMhMp8AAu8uAALJZdhLxChEqBW77G49BA",
         "CgACAgIAAxkBAAPQaoXtECWaUNM94OLb5JgofX5kBK4AAlpDAAIBqoFJnwedkRUYrPw9BA",
@@ -501,14 +484,47 @@ async def daily_provocation(context: ContextTypes.DEFAULT_TYPE):
     ]
     
     gif_chaqiruv = random.choice(PROVOCATION_GIFS)
-
     try:
-        if gif_chaqiruv.startswith("GIF_KODI"):
-            await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode='HTML')
-        else:
-            await context.bot.send_animation(chat_id=chat_id, animation=gif_chaqiruv, caption=msg, parse_mode='HTML')
+        await context.bot.send_animation(chat_id=chat_id, animation=gif_chaqiruv, caption=msg, parse_mode='HTML')
     except Exception as e:
         print(f"16:00 chaqiruv yuborishda xato: {e}")
+
+# Har kuni 15:00 da (5 kun o'ynamagan dangasalarni aniqlash)
+async def check_inactive_players(context: ContextTypes.DEFAULT_TYPE):
+    cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
+    row = cursor.fetchone()
+    if not row: return 
+    chat_id = int(row[0])
+    
+    # Barcha o'yinchilarni topish
+    cursor.execute("SELECT p1, p2 FROM matches")
+    all_matches = cursor.fetchall()
+    all_players = set()
+    for p1, p2 in all_matches:
+        all_players.add(p1)
+        all_players.add(p2)
+        
+    # Oxirgi 5 kunda o'ynaganlarni topish
+    start_utc = (datetime.utcnow() - timedelta(days=5)).strftime('%Y-%m-%d %H:%M:%S')
+    cursor.execute("SELECT p1, p2 FROM matches WHERE date >= ?", (start_utc,))
+    recent_matches = cursor.fetchall()
+    active_players = set()
+    for p1, p2 in recent_matches:
+        active_players.add(p1)
+        active_players.add(p2)
+        
+    # Dangasalar = Barcha o'yinchilar - Faol o'yinchilar
+    inactive_players = all_players - active_players
+    
+    if inactive_players:
+        mentions = ", ".join([html.escape(p) for p in inactive_players])
+        msg = f"🤬 <b>\"Qayerlarda daydib yuribsan, guruhdan badarg‘a qilaymi? Kafangado bo‘lasan-ku!\"</b>\n\n{mentions} — 5 kundan beri maydonda ko'rinmaysizlar! Tirikmisizlar o'zi?"
+        gif_id = "CgACAgIAAxkBAAO8aoXamtCs_ekIJh7Dj7X1N7r0Z9UAAqeuAAJtRTBI4RGqc2Mp8Mk9BA" # Qishloqilar gifi
+        
+        try:
+            await context.bot.send_animation(chat_id=chat_id, animation=gif_id, caption=msg, parse_mode='HTML')
+        except Exception as e:
+            print(f"Inactive yuborishda xato: {e}")
 
 def main():
     token = os.getenv("BOT_TOKEN")
@@ -527,28 +543,32 @@ def main():
     app.add_handler(CommandHandler("h2h", h2h_stats))
     app.add_handler(CommandHandler("del", delete_match))
     
-    # GIF ID aniqlash (Faqat lichkada ishlaydi)
     app.add_handler(MessageHandler(filters.ANIMATION, get_gif_id))
-    
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_match))
 
-   # O'zbekiston vaqti (UTC+5)
+    # O'zbekiston vaqti (UTC+5)
     tz_uz = timezone(timedelta(hours=5))
     
-    # Soatlar: 23:00 va 16:00 ni belgilash
+    # Soatlarni belgilash
     time_23 = time(hour=23, minute=0, tzinfo=tz_uz)
+    time_20 = time(hour=20, minute=0, tzinfo=tz_uz) # Yakshanba uchun
+    time_17 = time(hour=17, minute=0, tzinfo=tz_uz)
     time_16 = time(hour=16, minute=0, tzinfo=tz_uz)
+    time_15 = time(hour=15, minute=0, tzinfo=tz_uz)
     
     # 1. Kunlik sarhisob (Har kuni 23:00 da)
     app.job_queue.run_daily(daily_summary, time=time_23)
     
-    # 2. Haftalik sarhisob (Yakshanba kuni 23:00 da) -> 6 = Yakshanba
-    app.job_queue.run_daily(weekly_summary, time=time_23, days=(6,))
+    # 2. Haftalik sarhisob (Yakshanba kuni 20:00 da) -> 6 = Yakshanba
+    app.job_queue.run_daily(weekly_summary, time=time_20, days=(6,))
 
     # 3. Har kuni 16:00 da (Jangga chorlov)
     app.job_queue.run_daily(daily_provocation, time=time_16)
     
-    # 4. 3 kunlik kutilmagan mem (Har 3 kunda 17:00 da)
+    # 4. Har kuni 15:00 da (5 kun o'ynamaganlarni tekshirish)
+    app.job_queue.run_daily(check_inactive_players, time=time_15)
+    
+    # 5. 3 kunlik kutilmagan mem (Har 3 kunda 17:00 da)
     now = datetime.now(tz_uz)
     first_17 = now.replace(hour=17, minute=0, second=0, microsecond=0)
     if now > first_17:
