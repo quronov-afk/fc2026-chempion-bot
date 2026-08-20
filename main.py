@@ -339,7 +339,7 @@ async def h2h_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(text, parse_mode='HTML')
 
 # ==========================================
-# 5. AVTOMATIK XABARLAR (KUNLIK, HAFTALIK, 3 KUNLIK, DANGASALAR)
+# 5. AVTOMATIK XABARLAR (KUNLIK, HAFTALIK, DANGASALAR)
 # ==========================================
 
 async def send_meme(context, chat_id, meme_list, **kwargs):
@@ -363,7 +363,7 @@ async def daily_summary(context: ContextTypes.DEFAULT_TYPE):
     chat_id = int(row[0])
     
     stats = get_stats_by_period(today_only=True)
-    if not stats: return # Bugun umuman o'yin bo'lmagan
+    if not stats: return 
     
     sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
     winner = html.escape(sorted_pts[0][0])
@@ -405,14 +405,14 @@ async def weekly_summary(context: ContextTypes.DEFAULT_TYPE):
     
     await send_meme(context, chat_id, WEEKLY_WINNER_MEMES, player=winner, reason=reason)
 
-# Har 3 kunda 17:00 da (Oxirgi 3 kun natijalari)
+# Har Payshanba 17:00 da (Hafta o'rtasi - Kazo-kazo memlar)
 async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
     row = cursor.fetchone()
     if not row: return 
     chat_id = int(row[0])
     
-    stats = get_stats_by_period(days=3)
+    stats = get_stats_by_period(days=7)
     if not stats or len(stats) < 2: return 
 
     sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
@@ -453,16 +453,16 @@ async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_animation(chat_id=chat_id, animation=gif_otib_tashla, caption=msg3, parse_mode='HTML')
         
     except Exception as e:
-        print(f"3 kunlik xabar yuborishda xato: {e}")
+        print(f"Hafta o'rtasi xabar yuborishda xato: {e}")
 
-# Har kuni 16:00 da (Jangga chorlov - UMUMIY reyting asosida, 20 xil ixcham matn)
+# Har 2 kunda 16:00 da (Jangga chorlov - UMUMIY reyting asosida)
 async def daily_provocation(context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
     row = cursor.fetchone()
     if not row: return 
     chat_id = int(row[0])
 
-    stats = get_stats_by_period() # Umumiy tarix
+    stats = get_stats_by_period() 
     if not stats or len(stats) < 2: return
 
     sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
@@ -602,20 +602,27 @@ def main():
     time_23 = time(hour=23, minute=0, tzinfo=tz_uz)
     time_20 = time(hour=20, minute=0, tzinfo=tz_uz) 
     time_17 = time(hour=17, minute=0, tzinfo=tz_uz)
-    time_16 = time(hour=16, minute=0, tzinfo=tz_uz)
     time_15 = time(hour=15, minute=0, tzinfo=tz_uz)
     
+    # 1. Kunlik sarhisob (Har kuni 23:00 da)
     app.job_queue.run_daily(daily_summary, time=time_23)
-    app.job_queue.run_daily(weekly_summary, time=time_20, days=(6,))
-    app.job_queue.run_daily(daily_provocation, time=time_16)
-    app.job_queue.run_daily(check_inactive_players, time=time_15)
     
+    # 2. Haftalik sarhisob (Yakshanba kuni 20:00 da) -> 6 = Yakshanba
+    app.job_queue.run_daily(weekly_summary, time=time_20, days=(6,))
+    
+    # 3. Har kuni 15:00 da (5 kun o'ynamaganlarni tekshirish)
+    app.job_queue.run_daily(check_inactive_players, time=time_15)
+
+    # 4. Kazo-kazo memlar (Haftada bir marta, Payshanba kuni 17:00 da) -> 3 = Payshanba
+    app.job_queue.run_daily(auto_announce, time=time_17, days=(3,))
+
+    # 5. Jangga chorlov (Har 2 kunda 16:00 da)
     now = datetime.now(tz_uz)
-    first_17 = now.replace(hour=17, minute=0, second=0, microsecond=0)
-    if now > first_17:
-        first_17 += timedelta(days=1)
+    first_16 = now.replace(hour=16, minute=0, second=0, microsecond=0)
+    if now > first_16:
+        first_16 += timedelta(days=1)
         
-    app.job_queue.run_repeating(auto_announce, interval=timedelta(days=3), first=first_17)
+    app.job_queue.run_repeating(daily_provocation, interval=timedelta(days=2), first=first_16)
 
     print("Bot ishga tushdi...")
     app.run_polling()
