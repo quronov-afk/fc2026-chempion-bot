@@ -219,7 +219,7 @@ def create_comparison_chart(curr_stats, prev_stats, title_text):
     return buf
 
 # ==========================================
-# 4. SERTIFIKAT YASASH (MUKAMMAL DIZAYN)
+# 4. SERTIFIKAT YASASH (NAFIS DIZAYN)
 # ==========================================
 
 async def generate_certificate(context, user_id, username, pts, wins, ppg):
@@ -232,7 +232,7 @@ async def generate_certificate(context, user_id, username, pts, wins, ppg):
 
     draw = ImageDraw.Draw(img)
     
-    # Shriftlarni xavfsiz yuklash (Render serveri uchun standart shriftlar)
+    # Shriftlarni xavfsiz yuklash (Nafis va kichikroq o'lchamlar)
     def load_font(size, bold=True):
         font_names = [
             "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf",
@@ -247,12 +247,11 @@ async def generate_certificate(context, user_id, username, pts, wins, ppg):
                 pass
         return ImageFont.load_default()
 
-    font_title = load_font(45, bold=True)
-    font_name = load_font(55, bold=True)
-    font_stats = load_font(28, bold=True) # Kichraytirildi, sig'ishi uchun
-    font_sub = load_font(22, bold=False)
+    font_title = load_font(40, bold=True)
+    font_name = load_font(45, bold=True)
+    font_stats = load_font(24, bold=False) # Nafis va kichikroq
+    font_sub = load_font(20, bold=False)
 
-    # Aniq markazlashtirish funksiyasi
     def draw_centered(y, text, font, fill):
         try:
             bbox = draw.textbbox((0,0), text, font=font)
@@ -271,7 +270,6 @@ async def generate_certificate(context, user_id, username, pts, wins, ppg):
                 avatar_bytes = await file.download_as_bytearray()
                 avatar = Image.open(io.BytesIO(avatar_bytes)).convert("RGBA")
                 
-                # O'lchamni tilla doiraga moslash (230x230)
                 avatar_size = 230
                 avatar = avatar.resize((avatar_size, avatar_size))
                 
@@ -279,27 +277,23 @@ async def generate_certificate(context, user_id, username, pts, wins, ppg):
                 draw_mask = ImageDraw.Draw(mask)
                 draw_mask.ellipse((0, 0, avatar_size, avatar_size), fill=255)
                 
-                # X = (800 - 230) / 2 = 285. Y = 135 (Doira markaziga moslab)
                 img.paste(avatar, (285, 135), mask)
                 avatar_pasted = True
         except Exception as e:
             print(f"Avatar yuklashda xato: {e}")
 
-    # 2. MATNLARNI JOYLASHTIRISH (Emojilarsiz, toza shriftda)
-    # Y koordinatalari (500 dan 750 gacha bo'lgan bo'shliqda)
+    # 2. MATNLARNI JOYLASHTIRISH (Nafis va markazda)
+    draw_centered(470, "O Y   Q I R O L I", font_title, '#F3E37C') 
     
-    draw_centered(480, "O Y   Q I R O L I", font_title, '#F3E37C') 
+    draw_centered(550, f"{username}", font_name, '#66FCF1') 
     
-    # Ismni toza qilib yozamiz
-    draw_centered(560, f"{username}", font_name, '#66FCF1') 
-    
-    stats_text = f"OCHKOLAR: {pts}   |   G'ALABALAR: {wins}   |   PPG: {ppg:.2f}"
-    draw_centered(660, stats_text, font_stats, '#FFFFFF') 
+    # Bosh harflardan voz kechib, nafis yozamiz
+    stats_text = f"Ochkolar: {pts}   |   G'alabalar: {wins}   |   PPG: {ppg:.2f}"
+    draw_centered(650, stats_text, font_stats, '#FFFFFF') 
     
     month_name = datetime.now().strftime('%m-%Y')
-    draw_centered(730, f"FC Do'stlar Ligasi Yengilmas Chempioni • {month_name}", font_sub, '#C5C6C7') 
+    draw_centered(720, f"FC Do'stlar Ligasi Yengilmas Chempioni • {month_name}", font_sub, '#C5C6C7') 
 
-    # Rasmni xotiraga saqlash va yuborishga tayyorlash
     buf = io.BytesIO()
     img.convert('RGB').save(buf, format='JPEG', quality=95)
     buf.seek(0)
@@ -326,8 +320,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📜 /tarix - Oxirgi 7 kunlik o'yinlar\n"
         "👤 <code>/stat @user</code> - Shaxsiy statistika\n"
         "⚔️ <code>/h2h @user1 @user2</code> - O'zaro tarix\n"
-        "📺 <code>/del ID</code> - Xatoni o'chirish\n"
-        "🖼 <code>/testcert</code> - Sertifikat dizaynini ko'rish"
+        "📺 <code>/del ID</code> - Xatoni o'chirish"
     )
     await update.effective_message.reply_text(text, parse_mode='HTML')
 
@@ -492,8 +485,13 @@ async def h2h_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"👑 {html.escape(p1)} g'alabasi: <b>{p1_wins} ta</b>\n😭 {html.escape(p2)} g'alabasi: <b>{p2_wins} ta</b>\n🤝 Durang: <b>{draws} ta</b>")
     await update.effective_message.reply_text(text, parse_mode='HTML')
 
-# TEST UCHUN MAXSUS BUYRUQ
+# TEST UCHUN MAXSUS BUYRUQ (Faqat shaxsiy yozishmada ishlaydi)
 async def test_cert(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Guruhda yozilsa, ogohlantiramiz
+    if update.effective_chat.type != 'private':
+        await update.effective_message.reply_text("🤫 Syurpriz buzilmasligi uchun bu buyruqni faqat botning shaxsiy yozishmasida (lichkada) ishlating!")
+        return
+
     user_id = update.effective_user.id
     username = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
     
