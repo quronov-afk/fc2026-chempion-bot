@@ -53,22 +53,48 @@ conn.commit()
 # 2. RANDOM MEMLAR VA GIFLAR BAZASI
 # ==========================================
 
+# G'oliblar uchun GIFlar
+GIF_WIN_1 = "CgACAgQAAxkBAAIBIGqInhqnXgL3lO_XQBY6ovgLxj-8AALrCQACXiTkUqOL8Djg85SsPQQ" # Shum bola kazo
+GIF_WIN_2 = "CgACAgIAAxkBAAIBImqInxDQjVfHKiGY2q0gXH8okpY6AALeBgACyTthSrIe1TGtXuzbPQQ" # To'y bola
+GIF_WIN_3 = "CgACAgIAAxkBAAIBPmqIowbF2Nqs6JmyZcPFOs3PlvfQAAL5EAACPr1ISLAYW28QSZsaPQQ" # Normalniy bollar
+
+# Mag'lublar uchun GIFlar
+GIF_LOSE_1 = "CgACAgIAAxkBAAIBHmqInWIBZpGjbGSchBUlGUPTJr-kAALYCgACfTIpSH4-y3c88xEPPQQ" # E yashamargur
+GIF_LOSE_2 = "CgACAgQAAxkBAAIBJGqIn-0bWWoaOUTxlBdHjB4AAWK-tQACBgcAArKW9VGE-n38Dog1wT0E" # Uyat uyat
+GIF_LOSE_3 = "CgACAgIAAxkBAAIBMmqIoo3kfjIzyjhnFY3J0F0g8izTAAKqEAACPr1ISFbgiO_nZbs6PQQ" # Voy dod
+GIF_LOSE_4 = "CgACAgIAAxkBAAIBNGqIoqg_h9A-9Q1n8o_MBoGsypBnAAKPFwACrupASIRE7lFwpooSPQQ" # Kim edigu
+GIF_LOSE_5 = "CgACAgIAAxkBAAIBNmqIorzBYLJKcOkjqWycif7zkC4fAALPDwAC2CNBSFaQOKk6kUgwPQQ" # Odam bo'lmaysan
+GIF_LOSE_6 = "CgACAgQAAxkBAAIBPGqIotzyG4QFneP2CXemyuKU_96uAAKQDgACmRFJUFlZpxugsTPJPQQ" # Dada man oynamayman
+GIF_LOSE_7 = "CgACAgQAAxkBAAIBRGqIo0x9SSwIt7fAv6LLrV2dEAMAAwcNAAJOskhQ2YVnzlj04gABPQQ" # Taqdir ekanda
+GIF_LOSE_8 = "CgACAgIAAxkBAAIBRmqIo2z9GjcGYOCWf8nA7c6nNfN_AAK3EwACrt9ISEQ7CsptOpq4PQQ" # Yurak qon
+GIF_LOSE_9 = "CgACAgIAAxkBAAIBTmqIpEEEg04q8x9FfXmyRCx3-x1CAAJWEgACXjhISHwqidLUrqzoPQQ" # Sen hali yoshsan
+GIF_LOSE_10 = "CgACAgUAAxkBAAIBVGqIpHMXXCSGqQHtAt3bPIAhYqSYAAIsBAACY-RRVMaGR-SJtGCrPQQ" # Reja yoq
+GIF_LOSE_11 = "CgACAgIAAxkBAAIBVmqIpJU38JgdxhPmUVDb3UE_e1RzAAKkFgACHklASGUIw6SKEOHnPQQ" # Aka bu oyin sizniki emas
+
 WEEKLY_WINNER_MEMES = [
-    {"text": "👑 <b>HAFTA QIROLI!</b>\nUshbu haftaning mutlaq qiroli - {player}!\n<i>({reason})</i>\nQolganlar, tiz cho'king!", "gif": "CgACAgQAAxkBAAOAaoWEcnZZgVgOsrVxd_PX4seubZoAAkEHAAKu7FVSPErBb2CcrM09BA"},
-    {"text": "🏆 <b>DARS BERILDI!</b>\n{player} bu hafta hammangizga darsingizni berdi.\n<i>({reason})</i>\nJoystikni qanday ishlashni o'rganib olinglar!", "gif": "CgACAgQAAxkBAAOCaoWEqtoeWFu1xnKnsWzjP12DlX8AAiwDAAKW0RVTG3af1IcEHpk9BA"},
-    {"text": "🥇 <b>CHEMPION!</b>\nHafta chempioni - {player}!\n<i>({reason})</i>\nBoshqalar esa faqat tomoshabin bo'lishdi.", "gif": "CgACAgQAAxkBAAOEaoWFKvYSr0Budf44-r-Jhcora_0AAkEDAAJblj1T4ui_iIOX0Us9BA"}
+    {"text": "👑 <b>\"Meni o'zingga tenglashtirma, kazo-kazolardanman men!\"</b>\n{player} bu hafta hammadan ustun! <i>({reason})</i>", "gif": GIF_WIN_1},
+    {"text": "🥇 <b>\"To'y bolani o'zini o'yinga chorlaymiz!\"</b>\n{player} butun hafta maydonda yallo qilib raqsga tushdi! <i>({reason})</i>", "gif": GIF_WIN_2},
+    {"text": "😎 <b>\"Normalniy bollar bilan normalniy o'ynaymiz!\"</b>\n{player} bu hafta raqiblarni hurmatini joyiga qo'yib, darsini berdi. <i>({reason})</i>", "gif": GIF_WIN_3}
 ]
 
 DAILY_WINNER_MEMES = [
-    {"text": "🌟 <b>KUN YULDUZI!</b>\nBugunning mutlaq yulduzi - {player}!\n<i>({reason})</i>\nBugun uni to'xtatib bo'lmadi.", "gif": "CgACAgQAAxkBAAOGaoWFTw4iObMjVnmuAzwxqW-IzOcAAr0DAAJZsARRN2mFveUh-i49BA"},
-    {"text": "🔥 <b>YONDIRDI!</b>\n{player} bugun maydonni yondirdi!\n<i>({reason})</i>\nQolganlar esa faqat changini yutdi.", "gif": "CgACAgQAAxkBAAOIaoWF4XQivBqH-hQaIRvsrFZeifkAAnYHAALa_JxRZmjf0mnyLTA9BA"},
-    {"text": "😎 <b>DAM OLINGLAR!</b>\nBugun {player} ning kuni bo'ldi.\n<i>({reason})</i>\nRaqiblar, yaxshilab dam oling, ertaga ham yutqazasizlar.", "gif": "CgACAgQAAxkBAAOKaoWGdvrDSdfiKGLrI7PzUzw7GgQAAt8JAAI6Lo1T-A0fC6Cam9o9BA"}
+    {"text": "👑 <b>\"Meni o'zingga tenglashtirma, kazo-kazolardanman men!\"</b>\n{player} bugun hammadan ustun! <i>({reason})</i>", "gif": GIF_WIN_1},
+    {"text": "🥇 <b>\"To'y bolani o'zini o'yinga chorlaymiz!\"</b>\n{player} bugun maydonda yallo qilib raqsga tushyapti! <i>({reason})</i>", "gif": GIF_WIN_2},
+    {"text": "😎 <b>\"Normalniy bollar bilan normalniy o'ynaymiz!\"</b>\n{player} bugun raqiblarni hurmatini joyiga qo'yib, darsini berib qo'ydi. <i>({reason})</i>", "gif": GIF_WIN_3}
 ]
 
 DAILY_LOSER_MEMES = [
-    {"text": "🗑 <b>KUN O'LJASI!</b>\nBugunning eng omadsiz o'yinchisi - {player}. Yettim deganimda... Afsus((", "gif": "CgACAgIAAxkBAAN-aoWD8jQwSS1dMwr1_cXYVwHmsHcAAo6kAAL2CDBIyh6sGt4yOw49BA"},
-    {"text": "😭 <b>YIG'LAMA!</b>\n{player} bugun hamma o'yinda kaltak yedi. Yig'lama, ertaga ham shunday bo'ladi!", "gif": "CgACAgIAAxkBAAOMaoWG9VMdJvHvsq_dmrPAWrAF5zcAAsJKAAJTXNhKfOXYbF63mSo9BA"},
-    {"text": "🐢 <b>TOSHBAQA!</b>\nBugunning eng sekin va omadsiz toshbaqasi - {player}. Joystikni devorga otish vaqti keldi!", "gif": "CgACAgQAAxkBAAOOaoWHEvYRQ4XAwpN6X6uDiobngTsAAtgGAAIf89xR-7P8SkDt3Eo9BA"}
+    {"text": "🤦‍♂️ <b>\"E, yashamargur, shuyam o'yin bo'ldimi?!\"</b>\n{player}, senga joystik ushlashga kim ruxsat berdi o'zi? Sharmanda!", "gif": GIF_LOSE_1},
+    {"text": "🐢 <b>\"Kim edigu, kim bo'ldik!\"</b>\n{player} ning ahvoliga maymunlar yig'layapti. Qani o'sha qadimgi yengilmas o'yinchi?", "gif": GIF_LOSE_4},
+    {"text": "😭 <b>\"Dada, man o'ynamayman!\"</b>\n{player} yig'lab yuborishiga oz qoldi. Boshqa unga gol urmanglar!", "gif": GIF_LOSE_6},
+    {"text": "🪦 <b>\"Taqdir ekan-da, peshonada bor ekan!\"</b>\n{player} mag'lubiyatga shunchalik ko'nikib ketdiki, yutqazsa ham xursand.", "gif": GIF_LOSE_7},
+    {"text": "🤕 <b>\"Yurak qon bo'lib ketdi-ku!\"</b>\n{player} ni qiynamanglar endi, u ham odam. Asabi tugadi buni!", "gif": GIF_LOSE_8},
+    {"text": "👶 <b>\"Sen hali yoshsan, g'o'rsan!\"</b>\n{player}, borib mashg'ulot rejimida botlar bilan o'yna!", "gif": GIF_LOSE_9},
+    {"text": "🎮 <b>\"Joystik yaxshi ishlamay qoldi-da, boʻlmasa koʻrardik...\"</b>\n{player} ning navbatdagi bahonasi tayyor!", "gif": "CgACAgQAAxkBAAPsaobmYGR_YQGgczhjgkPGTxUBclMAAgEMAALi4kFQkP6QlJAC7TY9BA"},
+    {"text": "♟ <b>\"Aka, bu oʻyin sizniki emas ekan, shaxmatga oʻting...\"</b>\n{player}, futbolni yig'ishtiring, asabga ziyon!", "gif": GIF_LOSE_11},
+    {"text": "📉 <b>\"Uka, bu sening darajang emas...\"</b>\n{player} kattalar o'yiniga adashib kirib qolibdi.", "gif": GIF_LOSE_2},
+    {"text": "🧠 <b>\"Muammo nimadaligini bilasanmi? Senda reja yoʻq!\"</b>\n{player} maydonda nima qilayotganini o'zi ham bilmaydi.", "gif": GIF_LOSE_10},
+    {"text": "⛰ <b>\"Aytudim-a shu tepalikka chiqmaylik deb\"</b>\n{player} kuchli raqiblarga duch kelib, qattiq pushaymon bo'lyapti!", "gif": GIF_LOSE_3}
 ]
 
 # ==========================================
@@ -97,10 +123,9 @@ def get_stats_by_period(days=None, today_only=False):
             if p not in stats:
                 stats[p] = {
                     'games': 0, 'w': 0, 'd': 0, 'l': 0, 'gf': 0, 'ga': 0, 'pts': 0,
-                    'h2h': {} # Raqiblarni alohida hisoblash uchun
+                    'h2h': {} 
                 }
         
-        # Har bir raqibni ro'yxatga qo'shish
         if p2 not in stats[p1]['h2h']: stats[p1]['h2h'][p2] = {'games': 0, 'pts': 0}
         if p1 not in stats[p2]['h2h']: stats[p2]['h2h'][p1] = {'games': 0, 'pts': 0}
 
@@ -131,7 +156,6 @@ def get_stats_by_period(days=None, today_only=False):
             stats[p1]['h2h'][p2]['pts'] += 1
             stats[p2]['h2h'][p1]['pts'] += 1
 
-    # Haqiqiy Koeffitsiyentni (True PPG) hisoblash
     for p, data in stats.items():
         total_h2h_ppg = 0
         unique_opponents = len(data['h2h'])
@@ -233,7 +257,6 @@ async def show_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
     
-    # Sifat reytingi: Kamida 3 ta o'yin VA kamida 2 xil raqib bilan o'ynagan bo'lishi shart!
     valid_ppg = {k: v for k, v in stats.items() if v['games'] >= 3 and v['unique_opponents'] >= 2}
     sorted_ppg = sorted(valid_ppg.items(), key=lambda x: x[1]['true_ppg'], reverse=True)
 
@@ -435,7 +458,7 @@ async def weekly_summary(context: ContextTypes.DEFAULT_TYPE):
     
     await send_meme(context, chat_id, WEEKLY_WINNER_MEMES, player=winner, reason=reason)
 
-# Har Payshanba 17:00 da (Hafta o'rtasi - Kazo-kazo memlar)
+# Har Payshanba 17:00 da (Hafta o'rtasi - Kazo-kazo memlar - RANDOM)
 async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
     row = cursor.fetchone()
@@ -448,7 +471,6 @@ async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
     sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
     top_pts_player = html.escape(sorted_pts[0][0])
     top_pts = sorted_pts[0][1]['pts']
-    top_wins = sorted_pts[0][1]['w']
     
     bottom_player = html.escape(sorted_pts[-1][0])
     bottom_pts = sorted_pts[-1][1]['pts']
@@ -461,93 +483,77 @@ async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
     else:
         top_ppg_player = None
 
-    gif_kazo = "CgACAgIAAxkBAAO-aoXaujWOQPXd6AvAX3MWb-uAgUUAAqiuAAJtRTBIAAH6foMHrf0NPQQ"
-    gif_qishloq = "CgACAgIAAxkBAAO8aoXamtCs_ekIJh7Dj7X1N7r0Z9UAAqeuAAJtRTBI4RGqc2Mp8Mk9BA"
-    gif_otib_tashla = "CgACAgIAAxkBAAPAaoXa4BGj3cO2B5AwUDDJgOCSvOkAAqquAAJtRTBIcHwysyjc8y89BA"
-
-    msg1 = f"👑 <b>\"Meni o'zingga tenglashtirma, kazo-kazolardanman men!\"</b>\n\n📊 {top_pts_player} {top_pts} ochko ({top_wins} ta g'alaba) bilan hammadan tepada, qolganlar, ta'zim qiling!"
+    # 1. Top Ochko uchun random
+    TOP_PTS_TEMPLATES = [
+        {"text": f"👑 <b>\"Meni o'zingga tenglashtirma, kazo-kazolardanman men!\"</b>\n\n📊 {top_pts_player} {top_pts} ochko bilan hammadan tepada, qolganlar ta'zim qiling!", "gif": GIF_WIN_1},
+        {"text": f"🕺 <b>\"To'y bolani o'zini o'yinga chorlaymiz!\"</b>\n\n📊 {top_pts_player} {top_pts} ochko bilan butun hafta maydonda yallo qildi!", "gif": GIF_WIN_2},
+        {"text": f"😎 <b>\"Normalniy bollar bilan normalniy o'ynaymiz!\"</b>\n\n📊 {top_pts_player} {top_pts} ochko yig'ib, hammangni hurmatingni joyiga qo'ydi!", "gif": GIF_WIN_3}
+    ]
     
-    if top_ppg_player:
-        msg2 = f"🚜 <b>\"Yo'ldan qoch, qishloqilar!\"</b>\n\n📈 {top_ppg_player} {top_ppg:.2f} koeffitsiyent bilan eng sifatli o'yin ko'rsatmoqda!"
+    # 2. Top PPG uchun random
+    TOP_PPG_TEMPLATES = [
+        {"text": f"🚜 <b>\"Yo'ldan qoch, qishloqilar!\"</b>\n\n📈 {top_ppg_player} {top_ppg:.2f} koeffitsiyent bilan hammadan sifatli o'ynayapti!", "gif": "CgACAgIAAxkBAAO8aoXamtCs_ekIJh7Dj7X1N7r0Z9UAAqeuAAJtRTBI4RGqc2Mp8Mk9BA"},
+        {"text": f"🧠 <b>\"Muammo nimadaligini bilasanmi? Ularda reja yoʻq!\"</b>\n\n📈 {top_ppg_player} esa {top_ppg:.2f} koeffitsiyent bilan hammangni aql bilan yutyapti, o'rganinglar!", "gif": GIF_LOSE_10},
+        {"text": f"🎩 <b>\"Sizlar faqat soniga ishlaysizlar, men sifatiga!\"</b>\n\n📈 {top_ppg_player} dan {top_ppg:.2f} koeffitsiyentlik haqiqiy master-klass!", "gif": GIF_WIN_3}
+    ]
     
-    msg3 = f"🔫 <b>\"Otib tashlanglar buni!!!\"</b>\n\n📉 {bottom_player} atigi {bottom_pts} ochko bilan reyting tubida yotibdi... Otib tashlanglar, uni :)"
+    # 3. Bottom uchun random
+    BOTTOM_TEMPLATES = [
+        {"text": f"🔫 <b>\"Otib tashlanglar buni!!!\"</b>\n\n📉 {bottom_player} atigi {bottom_pts} ochko bilan reyting tubida yotibdi...", "gif": "CgACAgIAAxkBAAPAaoXa4BGj3cO2B5AwUDDJgOCSvOkAAqquAAJtRTBIcHwysyjc8y89BA"},
+        {"text": f"🤦‍♂️ <b>\"E, yashamargur, shuyam o'yin bo'ldimi?!\"</b>\n\n📉 {bottom_player} atigi {bottom_pts} ochko yig'ibdi. Uyalsang bo'lmaydimi?", "gif": GIF_LOSE_1},
+        {"text": f"😭 <b>\"Dada, man o'ynamayman!\"</b>\n\n📉 {bottom_player} {bottom_pts} ochko bilan burchakda yig'lab o'tiribdi.", "gif": GIF_LOSE_6},
+        {"text": f"♟ <b>\"Aka, bu oʻyin sizniki emas ekan, shaxmatga oʻting...\"</b>\n\n📉 {bottom_player}, {bottom_pts} ochko bilan nima qilib yuribsiz bu yerda?", "gif": GIF_LOSE_11},
+        {"text": f"⛰ <b>\"Aytudim-a shu tepalikka chiqmaylik deb!\"</b>\n\n📉 {bottom_player} kuchlilar orasiga qo'shilib qolib, qattiq pushaymon bo'lyapti ({bottom_pts} ochko).", "gif": GIF_LOSE_10},
+        {"text": f"🐢 <b>\"Kim edigu, kim bo'ldik!\"</b>\n\n📉 {bottom_player} ning ahvoliga maymunlar yig'layapti ({bottom_pts} ochko).", "gif": GIF_LOSE_4},
+        {"text": f"📉 <b>\"Uka, bu sening darajang emas...\"</b>\n\n📉 {bottom_player} kattalar o'yiniga adashib kirib qolibdi ({bottom_pts} ochko).", "gif": GIF_LOSE_9}
+    ]
 
     try:
-        await context.bot.send_animation(chat_id=chat_id, animation=gif_kazo, caption=msg1, parse_mode='HTML')
+        pts_choice = random.choice(TOP_PTS_TEMPLATES)
+        await context.bot.send_animation(chat_id=chat_id, animation=pts_choice["gif"], caption=pts_choice["text"], parse_mode='HTML')
         
         if top_ppg_player:
             await asyncio.sleep(60) 
-            await context.bot.send_animation(chat_id=chat_id, animation=gif_qishloq, caption=msg2, parse_mode='HTML')
+            ppg_choice = random.choice(TOP_PPG_TEMPLATES)
+            await context.bot.send_animation(chat_id=chat_id, animation=ppg_choice["gif"], caption=ppg_choice["text"], parse_mode='HTML')
         
         await asyncio.sleep(60) 
-        await context.bot.send_animation(chat_id=chat_id, animation=gif_otib_tashla, caption=msg3, parse_mode='HTML')
+        bot_choice = random.choice(BOTTOM_TEMPLATES)
+        await context.bot.send_animation(chat_id=chat_id, animation=bot_choice["gif"], caption=bot_choice["text"], parse_mode='HTML')
         
     except Exception as e:
         print(f"Hafta o'rtasi xabar yuborishda xato: {e}")
 
-# Har 2 kunda 16:00 da (Jangga chorlov - UMUMIY reyting asosida)
+# Har 2 kunda 16:00 da (Jangga chorlov - OXIRGI 3 KUNLIK REYTING ASOSIDA)
 async def daily_provocation(context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
     row = cursor.fetchone()
     if not row: return 
     chat_id = int(row[0])
 
-    stats = get_stats_by_period() 
-    if not stats or len(stats) < 2: return
-
-    sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
-    top1 = html.escape(sorted_pts[0][0])
-    bottom = html.escape(sorted_pts[-1][0])
+    stats = get_stats_by_period(days=3) # Endi oxirgi 3 kunga qaraydi!
     
-    if len(sorted_pts) >= 3:
-        top2 = html.escape(sorted_pts[1][0])
+    if stats and len(stats) >= 2:
+        sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
+        top1 = html.escape(sorted_pts[0][0])
+        bottom = html.escape(sorted_pts[-1][0])
+        
         TEXT_TEMPLATES = [
-            f"🤬 {top1} bugun seni kuning emas!\n{top2} lallayma, {top1} ni yut!\n{bottom} san odam bo'maysan!",
-            f"👑 {top1} taxtdan tush!\n🥈 {top2} uyg'on!\n🐢 {bottom} idishlarni yuv!",
-            f"🔥 {top1} ni kim to'xtatadi?\n👀 {top2} qovun tushirma!\n📉 {bottom} reytingni teshib yubording!",
-            f"🗣 {top1} yengilmasmish...\n⚔️ {top2} popugini pasaytir!\n👶 {bottom} botlar bilan o'yna!",
-            f"🤫 {top1} gapiryapti!\n🤔 {top2} ovozing qani?\n😴 {bottom} uxlashga yot!",
-            f"🎯 {top1} nishonda!\n🏹 {top2} o'qni uz!\n🗑 {bottom} axlatqutiga!",
-            f"👑 {top1} 🤡\n🥈 {top2} 🥱\n🐢 {bottom} 💀",
-            f"🥇 {top1} 🚀\n🥈 {top2} 🐌\n🥉 {bottom} 🪦",
-            f"😎 {top1} boss.\n🤓 {top2} shogird.\n🤡 {bottom} masxaraboz.",
-            f"🛑 {top1} to'xtatilsin!\n⚠️ {top2} harakat qil!\n⛔️ {bottom} o'yinni o'chir!",
-            f"🐺 {top1} ovyapti.\n🦊 {top2} pisyapti.\n🐑 {bottom} qurbon.",
-            f"🏆 {top1} 🖕\n🥈 {top2} 👊\n🐢 {bottom} 👎",
-            f"😈 {top1} quturdi.\n👻 {top2} arvoh.\n🧟‍♂️ {bottom} zombi.",
-            f"💪 {top1} kuchga to'ldi.\n🤏 {top2} zaif.\n🤌 {bottom} yo'q bo'l.",
-            f"👑 {top1} 👑\n🥈 {top2} 🏃‍♂️💨\n🐢 {bottom} 🛌💤",
-            f"🥇 {top1} dars beryapti.\n📝 {top2} konspekt qil.\n🗑 {bottom} sinfdan chiq!",
-            f"🚀 {top1} kosmosda.\n🚁 {top2} havoda.\n🚜 {bottom} loyda.",
-            f"🦁 {top1} sher.\n🐈 {top2} mushuk.\n🐁 {bottom} sichqon.",
-            f"🥇 {top1} 🍾\n🥈 {top2} 🍼\n🐢 {bottom} 🧃",
-            f"🎭 {top1} ssenarist.\n🎬 {top2} aktyor.\n📺 {bottom} tomoshabin."
+            f"🔥 Oxirgi 3 kunda {top1} quturib ketdi! Kimdir buni to'xtatadimi yoki yana taslimmisiz?\n{bottom}, sen umuman aralashma, borib choy damla!",
+            f"🗣 Eshitishimcha, {top1} hammangni 'shogirdim' deyapti. G'urur bormi o'zi sizlarda?\nAyniqsa {bottom}, sen qachon oxirgi marta yutganding o'zi?",
+            f"🚑 Oxirgi o'yinlarni qarab chiqdim... {bottom} ni ahvoliga maymunlar yig'layapti.\n{top1} esa taxtda yallo qilyapti. Qani, bugun kim maydonga chiqadi?",
+            f"🎮 {top1} oxirgi paytlar joystikni 'sindirib' tashlayapti. Qolganlar nima qilyapti?\n{bottom} masalan, faqat to'p olib kelib beryapti degan gaplar yuribdi...",
+            f"🤡 Reytingni qaranglar! Oxirgi kunlarda {bottom} shunchaki 'ochko tarqatuvchi' xomiylik qilyapti.\n{top1} esa mazza qilib ochko yig'yapti. Bugun vaziyat o'zgaradimi?",
+            f"⚔️ Qani, jangchilar! Oxirgi kunlar qahramoni {top1} ni bugun kimdir yutib, 'popugini' pasaytirib qo'yadimi?\n{bottom} dan umid yo'q, boshqalar harakat qilsin!",
+            f"🤫 Hamma jim, oxirgi kunlar qiroli {top1} gapiryapti!\n{bottom}, sen gapirma, senga ruxsat yo'q! Qani, bugun kim maydonga chiqadi?",
+            f"🎯 {top1} nishonga aniq uryapti oxirgi payt.\n{bottom} esa o'z darvozasiga... Bugun kim kimgadir 'dars' beradimi?",
+            f"🏆 {top1} o'zini 'Kibersport ustasi' deb e'lon qildi. Bunga nima deysizlar?\n{bottom}, sen indama, sen hali 'Beginner'san.",
+            f"🔥 Oxirgi kunlardagi qonli janglarda {top1} tirik qoldi.\n{bottom} esa... uni eslashni ham xohlamayman. Qani, bugun kim maydonni yondiradi?"
         ]
+        msg = random.choice(TEXT_TEMPLATES)
     else:
-        TEXT_TEMPLATES = [
-            f"🤬 {top1} bugun seni kuning emas!\n{bottom} san odam bo'maysan!",
-            f"👑 {top1} taxtdan tush!\n🐢 {bottom} idishlarni yuv!",
-            f"🔥 {top1} ni kim to'xtatadi?\n📉 {bottom} reytingni teshib yubording!",
-            f"🗣 {top1} yengilmasmish...\n👶 {bottom} botlar bilan o'yna!",
-            f"🤫 {top1} gapiryapti!\n😴 {bottom} uxlashga yot!",
-            f"🎯 {top1} nishonda!\n🗑 {bottom} axlatqutiga!",
-            f"👑 {top1} 🤡\n🐢 {bottom} 💀",
-            f"🥇 {top1} 🚀\n🥉 {bottom} 🪦",
-            f"😎 {top1} boss.\n🤡 {bottom} masxaraboz.",
-            f"🛑 {top1} to'xtatilsin!\n⛔️ {bottom} o'yinni o'chir!",
-            f"🐺 {top1} ovyapti.\n🐑 {bottom} qurbon.",
-            f"🏆 {top1} 🖕\n🐢 {bottom} 👎",
-            f"😈 {top1} quturdi.\n🧟‍♂️ {bottom} zombi.",
-            f"💪 {top1} kuchga to'ldi.\n🤌 {bottom} yo'q bo'l.",
-            f"👑 {top1} 👑\n🐢 {bottom} 🛌💤",
-            f"🥇 {top1} dars beryapti.\n🗑 {bottom} sinfdan chiq!",
-            f"🚀 {top1} kosmosda.\n🚜 {bottom} loyda.",
-            f"🦁 {top1} sher.\n🐁 {bottom} sichqon.",
-            f"🥇 {top1} 🍾\n🐢 {bottom} 🧃",
-            f"🎭 {top1} ssenarist.\n📺 {bottom} tomoshabin."
-        ]
-
-    msg = random.choice(TEXT_TEMPLATES)
+        # Agar 3 kunda hech kim o'ynamagan bo'lsa
+        msg = "😴 O'liklar! 3 kundan beri hech kim tuzukroq o'ynamadi! Joystiklar zanglab qoldimi? Qani, maydonga chiqinglar!"
 
     PROVOCATION_GIFS = [
         "CgACAgIAAxkBAAPSaoXtV4ObWISdS22M5bnctKMhMp8AAu8uAALJZdhLxChEqBW77G49BA",
