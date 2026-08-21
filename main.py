@@ -219,39 +219,46 @@ def create_comparison_chart(curr_stats, prev_stats, title_text):
     return buf
 
 # ==========================================
-# 4. SERTIFIKAT YASASH (YANGI DIZAYN BILAN)
+# 4. SERTIFIKAT YASASH (MUKAMMAL DIZAYN)
 # ==========================================
 
 async def generate_certificate(context, user_id, username, pts, wins, ppg):
     try:
-        # Siz yuklagan rasmni ochamiz va aniq o'lchamga keltiramiz
         img = Image.open("cert_bg.jpg").convert("RGBA")
         img = img.resize((800, 1200)) 
     except Exception as e:
         print(f"Fon rasm topilmadi: {e}")
-        # Agar rasm topilmasa, zaxira qora fon chizamiz
         img = Image.new('RGBA', (800, 1200), color='#0B0C10')
 
     draw = ImageDraw.Draw(img)
     
-    # Shriftlarni yuklash (Katta va chiroyli)
-    try:
-        font_title = ImageFont.truetype("DejaVuSans-Bold.ttf", 45)
-        font_name = ImageFont.truetype("DejaVuSans-Bold.ttf", 55)
-        font_stats = ImageFont.truetype("DejaVuSans-Bold.ttf", 32)
-        font_sub = ImageFont.truetype("DejaVuSans.ttf", 25)
-    except:
-        font_title = ImageFont.load_default()
-        font_name = ImageFont.load_default()
-        font_stats = ImageFont.load_default()
-        font_sub = ImageFont.load_default()
+    # Shriftlarni xavfsiz yuklash (Render serveri uchun standart shriftlar)
+    def load_font(size, bold=True):
+        font_names = [
+            "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf",
+            "LiberationSans-Bold.ttf" if bold else "LiberationSans.ttf",
+            "FreeSansBold.ttf" if bold else "FreeSans.ttf",
+            "arial.ttf"
+        ]
+        for fn in font_names:
+            try:
+                return ImageFont.truetype(fn, size)
+            except:
+                pass
+        return ImageFont.load_default()
 
+    font_title = load_font(45, bold=True)
+    font_name = load_font(55, bold=True)
+    font_stats = load_font(28, bold=True) # Kichraytirildi, sig'ishi uchun
+    font_sub = load_font(22, bold=False)
+
+    # Aniq markazlashtirish funksiyasi
     def draw_centered(y, text, font, fill):
         try:
             bbox = draw.textbbox((0,0), text, font=font)
             w = bbox[2] - bbox[0]
         except:
-            w = len(text) * 15 
+            w = len(text) * (font.size * 0.6 if hasattr(font, 'size') else 15)
         draw.text(((800-w)/2, y), text, font=font, fill=fill)
 
     # 1. AVATARNI TILLA DOIRAGA JOYLASHTIRISH
@@ -264,36 +271,33 @@ async def generate_certificate(context, user_id, username, pts, wins, ppg):
                 avatar_bytes = await file.download_as_bytearray()
                 avatar = Image.open(io.BytesIO(avatar_bytes)).convert("RGBA")
                 
-                # Avatarni tilla doiraning o'lchamiga moslash (taxminan 280x280)
-                avatar = avatar.resize((280, 280))
+                # O'lchamni tilla doiraga moslash (230x230)
+                avatar_size = 230
+                avatar = avatar.resize((avatar_size, avatar_size))
                 
-                # Dumaloq maska yaratish
-                mask = Image.new('L', (280, 280), 0)
+                mask = Image.new('L', (avatar_size, avatar_size), 0)
                 draw_mask = ImageDraw.Draw(mask)
-                draw_mask.ellipse((0, 0, 280, 280), fill=255)
+                draw_mask.ellipse((0, 0, avatar_size, avatar_size), fill=255)
                 
-                # Rasmni tilla doira ustiga yopishtirish (X: 260, Y: 160 atrofida)
-                img.paste(avatar, (260, 160), mask)
+                # X = (800 - 230) / 2 = 285. Y = 135 (Doira markaziga moslab)
+                img.paste(avatar, (285, 135), mask)
                 avatar_pasted = True
         except Exception as e:
             print(f"Avatar yuklashda xato: {e}")
-            
-    if not avatar_pasted:
-        # Rasm topilmasa toj chizib qo'yamiz
-        draw_centered(260, "👑", font_name, '#F3E37C')
 
-    # 2. MATNLARNI JOYLASHTIRISH (Doira va Pult o'rtasida)
-    # Y koordinatalari (520 dan 780 gacha bo'lgan bo'shliqda)
+    # 2. MATNLARNI JOYLASHTIRISH (Emojilarsiz, toza shriftda)
+    # Y koordinatalari (500 dan 750 gacha bo'lgan bo'shliqda)
     
-    draw_centered(520, "🏆 OY QIROLI 🏆", font_title, '#F3E37C') # Tilla rang
+    draw_centered(480, "O Y   Q I R O L I", font_title, '#F3E37C') 
     
-    draw_centered(600, f"{username}", font_name, '#66FCF1') # Neon havorang
+    # Ismni toza qilib yozamiz
+    draw_centered(560, f"{username}", font_name, '#66FCF1') 
     
-    stats_text = f"Ochkolar: {pts}   |   G'alabalar: {wins}   |   PPG: {ppg:.2f}"
-    draw_centered(700, stats_text, font_stats, '#FFFFFF') # Oq rang
+    stats_text = f"OCHKOLAR: {pts}   |   G'ALABALAR: {wins}   |   PPG: {ppg:.2f}"
+    draw_centered(660, stats_text, font_stats, '#FFFFFF') 
     
     month_name = datetime.now().strftime('%m-%Y')
-    draw_centered(780, f"FC Do'stlar Ligasi Yengilmas Chempioni • {month_name}", font_sub, '#C5C6C7') # Och kulrang
+    draw_centered(730, f"FC Do'stlar Ligasi Yengilmas Chempioni • {month_name}", font_sub, '#C5C6C7') 
 
     # Rasmni xotiraga saqlash va yuborishga tayyorlash
     buf = io.BytesIO()
@@ -493,14 +497,13 @@ async def test_cert(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     username = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
     
-    # Test ma'lumotlari
     pts = 45
     wins = 15
     ppg = 2.50
 
     try:
         cert_buf = await generate_certificate(context, user_id, username, pts, wins, ppg)
-        await update.effective_message.reply_photo(photo=cert_buf, caption="Mana, bot yasaydigan Oltin Sertifikat! 🏆🎮")
+        await update.effective_message.reply_photo(photo=cert_buf, caption="🏆 Mana, Haqiqiy Oltin Sertifikat! 😎")
     except Exception as e:
         await update.effective_message.reply_text(f"Xatolik chiqdi: {e}")
 
@@ -743,10 +746,7 @@ def main():
     app.add_handler(CommandHandler("stat", player_stat))
     app.add_handler(CommandHandler("h2h", h2h_stats))
     app.add_handler(CommandHandler("del", delete_match))
-    
-    # Yangi buyruq!
     app.add_handler(CommandHandler("testcert", test_cert))
-    
     app.add_handler(MessageHandler(filters.ANIMATION, get_gif_id))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_match))
 
