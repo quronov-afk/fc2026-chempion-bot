@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 
 # ==========================================
-# 1. SERVER VA BAZA SOZLAMALARI
+# 1. SERVER VA BAZA SOZLAMALARI (KUCHAYTIRILGAN)
 # ==========================================
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
@@ -28,11 +28,18 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"Bot is alive and running!")
 
+# Port band bo'lsa, uni kuch bilan tortib olish uchun maxsus klass
+class ReusableTCPServer(HTTPServer):
+    allow_reuse_address = True
+
 def run_dummy_server():
-    port = int(os.environ.get("PORT", 8080))
-    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
-    print(f"HTTP Server {port}-portda ishga tushdi...")
-    server.serve_forever()
+    try:
+        port = int(os.environ.get("PORT", 8080))
+        server = ReusableTCPServer(('0.0.0.0', port), HealthCheckHandler)
+        print(f"HTTP Server {port}-portda ishga tushdi...")
+        server.serve_forever()
+    except Exception as e:
+        print(f"Web server xatosi: {e}")
 
 db_path = "/var/data/pes_stats.db" if os.path.exists("/var/data") else "pes_stats.db"
 conn = sqlite3.connect(db_path, check_same_thread=False)
@@ -54,7 +61,6 @@ cursor.execute('''
         value TEXT
     )
 ''')
-# Yangi: O'yinchilarning ID sini saqlash uchun (Rasmini olishga kerak)
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS users (
         username TEXT PRIMARY KEY,
@@ -218,15 +224,12 @@ def create_comparison_chart(curr_stats, prev_stats, title_text):
 # ==========================================
 
 async def generate_certificate(context, user_id, username, pts, wins, ppg):
-    # Kiber-sport uslubidagi to'q fon
     img = Image.new('RGB', (800, 600), color='#0B0C10')
     draw = ImageDraw.Draw(img)
     
-    # Oltin va Neon ramkalar
     draw.rectangle([20, 20, 780, 580], outline='#F3E37C', width=8)
     draw.rectangle([30, 30, 770, 570], outline='#66FCF1', width=2)
     
-    # Shriftlarni yuklash (Linux serverlari uchun standart shriftlar)
     try:
         font_title = ImageFont.truetype("DejaVuSans-Bold.ttf", 35)
         font_name = ImageFont.truetype("DejaVuSans-Bold.ttf", 45)
@@ -241,13 +244,11 @@ async def generate_certificate(context, user_id, username, pts, wins, ppg):
             bbox = draw.textbbox((0,0), text, font=font)
             w = bbox[2] - bbox[0]
         except:
-            w = len(text) * 12 # Taxminiy kenglik
+            w = len(text) * 12 
         draw.text(((800-w)/2, y), text, font=font, fill=fill)
 
-    # Sarlavha
     draw_centered(50, "🏆 FC DO'STLAR LIGASI - OY QIROLI 🏆", font_title, '#F3E37C')
     
-    # Telegram Avatarni tortib olish va dumaloq qilish
     avatar_pasted = False
     if user_id:
         try:
@@ -258,25 +259,20 @@ async def generate_certificate(context, user_id, username, pts, wins, ppg):
                 avatar = Image.open(io.BytesIO(avatar_bytes)).convert("RGBA")
                 avatar = avatar.resize((200, 200))
                 
-                # Dumaloq maska yaratish
                 mask = Image.new('L', (200, 200), 0)
                 draw_mask = ImageDraw.Draw(mask)
                 draw_mask.ellipse((0, 0, 200, 200), fill=255)
                 
-                # Oltin fon (ramka uchun)
                 draw.ellipse((295, 115, 505, 325), fill='#F3E37C')
-                
                 img.paste(avatar, (300, 120), mask)
                 avatar_pasted = True
         except Exception as e:
             print(f"Avatar yuklashda xato: {e}")
             
     if not avatar_pasted:
-        # Agar rasm yo'q bo'lsa, chiroyli "Placeholder" chizamiz
         draw.ellipse((300, 120, 500, 320), fill='#1F2833', outline='#F3E37C', width=5)
         draw_centered(190, "👑", font_name, '#F3E37C')
 
-    # Ism va Natijalar
     draw_centered(360, f"👑 {username} 👑", font_name, '#66FCF1')
     
     stats_text = f"📊 Ochkolar: {pts}   |   ⚔️ G'alabalar: {wins}   |   📈 Koeffitsiyent: {ppg:.2f}"
@@ -335,7 +331,6 @@ async def handle_match(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sender = update.effective_user
         my_raw = f"@{sender.username or sender.first_name}"
 
-        # Yozgan odamning ID sini bazaga saqlab qolamiz (Sertifikat uchun)
         cursor.execute("INSERT OR REPLACE INTO users (username, user_id) VALUES (?, ?)", (my_raw, sender.id))
         conn.commit()
 
@@ -543,6 +538,198 @@ async def weekly_analytics_chart(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Haftalik grafik yuborishda xato: {e}")
 
-# YAKUNIY OYLIK SARHISOB VA SERTIFIKAT
 async def monthly_analytics_chart(context: ContextTypes.DEFAULT_TYPE):
     tz_uz = timezone(timedelta(hours=5))
+    now = datetime.now(tz_uz)
+    
+    if now.day != 1: return 
+
+    cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
+    row = cursor.fetchone()
+    if not row: return 
+    chat_id = int(row[0])
+
+    curr_end = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    curr_start = (curr_end - timedelta(days=1)).replace(day=1)
+    prev_end = curr_start
+    prev_start = (prev_end - timedelta(days=1)).replace(day=1)
+
+    curr_stats = get_stats_by_date_range(curr_start, curr_end)
+    prev_stats = get_stats_by_date_range(prev_start, prev_end)
+
+    if not curr_stats: return
+
+    sorted_pts = sorted(curr_stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
+    winner_username = sorted_pts[0][0]
+    winner_data = sorted_pts[0][1]
+
+    cursor.execute("SELECT user_id FROM users WHERE LOWER(username) = LOWER(?)", (winner_username,))
+    user_row = cursor.fetchone()
+    winner_id = user_row[0] if user_row else None
+
+    try:
+        cert_buf = await generate_certificate(
+            context, winner_id, winner_username, 
+            winner_data['pts'], winner_data['w'], winner_data['true_ppg']
+        )
+        cert_caption = f"🎉 <b>OY QIROLI ANIQLANDI!</b>\n\n{html.escape(winner_username)}, bu maxsus Oltin Sertifikat senga ataldi! O'z rasming bilan faxrlanib yuraver! 🏆😎"
+        await context.bot.send_photo(chat_id=chat_id, photo=cert_buf, caption=cert_caption, parse_mode='HTML')
+        await asyncio.sleep(60) 
+    except Exception as e:
+        print(f"Sertifikat yuborishda xato: {e}")
+
+    chart_buf = create_comparison_chart(curr_stats, prev_stats, f"🏆 OYLIK SARHISOB ({curr_start.strftime('%B')})")
+    caption = "🏆 <b>OYLIK YAKUNIY SARHISOB!</b>\n\nBir oy davomida kim qancha ter to'kdi? Kim o'tgan oyga nisbatan kuchaydi va kim reyting tubiga quladi? Barchasi shu grafikda!"
+    
+    try:
+        await context.bot.send_photo(chat_id=chat_id, photo=chart_buf, caption=caption, parse_mode='HTML')
+    except Exception as e:
+        print(f"Oylik grafik yuborishda xato: {e}")
+
+async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
+    cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
+    row = cursor.fetchone()
+    if not row: return 
+    chat_id = int(row[0])
+    stats = get_stats_by_period(days=7)
+    if not stats or len(stats) < 2: return 
+    sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
+    top_pts_player, top_pts = html.escape(sorted_pts[0][0]), sorted_pts[0][1]['pts']
+    bottom_player, bottom_pts = html.escape(sorted_pts[-1][0]), sorted_pts[-1][1]['pts']
+    valid_ppg = {k: v for k, v in stats.items() if v['games'] >= 3 and v['unique_opponents'] >= 2}
+    top_ppg_player = html.escape(sorted(valid_ppg.items(), key=lambda x: x[1]['true_ppg'], reverse=True)[0][0]) if valid_ppg else None
+    top_ppg = sorted(valid_ppg.items(), key=lambda x: x[1]['true_ppg'], reverse=True)[0][1]['true_ppg'] if valid_ppg else 0
+
+    TOP_PTS_TEMPLATES = [
+        {"text": f"👑 <b>\"Meni o'zingga tenglashtirma, kazo-kazolardanman men!\"</b>\n\n📊 {top_pts_player} {top_pts} ochko bilan hammadan tepada, qolganlar ta'zim qiling!", "gif": GIF_WIN_1},
+        {"text": f"🕺 <b>\"To'y bolani o'zini o'yinga chorlaymiz!\"</b>\n\n📊 {top_pts_player} {top_pts} ochko bilan butun hafta maydonda yallo qildi!", "gif": GIF_WIN_2},
+        {"text": f"😎 <b>\"Normalniy bollar bilan normalniy o'ynaymiz!\"</b>\n\n📊 {top_pts_player} {top_pts} ochko yig'ib, hammangni hurmatingni joyiga qo'ydi!", "gif": GIF_WIN_3}
+    ]
+    TOP_PPG_TEMPLATES = [
+        {"text": f"🚜 <b>\"Yo'ldan qoch, qishloqilar!\"</b>\n\n📈 {top_ppg_player} {top_ppg:.2f} koeffitsiyent bilan hammadan sifatli o'ynayapti!", "gif": "CgACAgIAAxkBAAO8aoXamtCs_ekIJh7Dj7X1N7r0Z9UAAqeuAAJtRTBI4RGqc2Mp8Mk9BA"},
+        {"text": f"🧠 <b>\"Muammo nimadaligini bilasanmi? Ularda reja yoʻq!\"</b>\n\n📈 {top_ppg_player} esa {top_ppg:.2f} koeffitsiyent bilan hammangni aql bilan yutyapti, o'rganinglar!", "gif": GIF_LOSE_10},
+        {"text": f"🎩 <b>\"Sizlar faqat soniga ishlaysizlar, men sifatiga!\"</b>\n\n📈 {top_ppg_player} dan {top_ppg:.2f} koeffitsiyentlik haqiqiy master-klass!", "gif": GIF_WIN_3}
+    ]
+    BOTTOM_TEMPLATES = [
+        {"text": f"🔫 <b>\"Otib tashlanglar buni!!!\"</b>\n\n📉 {bottom_player} atigi {bottom_pts} ochko bilan reyting tubida yotibdi...", "gif": "CgACAgIAAxkBAAPAaoXa4BGj3cO2B5AwUDDJgOCSvOkAAqquAAJtRTBIcHwysyjc8y89BA"},
+        {"text": f"🤦‍♂️ <b>\"E, yashamargur, shuyam o'yin bo'ldimi?!\"</b>\n\n📉 {bottom_player} atigi {bottom_pts} ochko yig'ibdi. Uyalsang bo'lmaydimi?", "gif": GIF_LOSE_1},
+        {"text": f"😭 <b>\"Dada, man o'ynamayman!\"</b>\n\n📉 {bottom_player} {bottom_pts} ochko bilan burchakda yig'lab o'tiribdi.", "gif": GIF_LOSE_6},
+        {"text": f"♟ <b>\"Aka, bu oʻyin sizniki emas ekan, shaxmatga oʻting...\"</b>\n\n📉 {bottom_player}, {bottom_pts} ochko bilan nima qilib yuribsiz bu yerda?", "gif": GIF_LOSE_11},
+        {"text": f"⛰ <b>\"Aytudim-a shu tepalikka chiqmaylik deb!\"</b>\n\n📉 {bottom_player} kuchlilar orasiga qo'shilib qolib, qattiq pushaymon bo'lyapti ({bottom_pts} ochko).", "gif": GIF_LOSE_10},
+        {"text": f"🐢 <b>\"Kim edigu, kim bo'ldik!\"</b>\n\n📉 {bottom_player} ning ahvoliga maymunlar yig'layapti ({bottom_pts} ochko).", "gif": GIF_LOSE_4},
+        {"text": f"📉 <b>\"Uka, bu sening darajang emas...\"</b>\n\n📉 {bottom_player} kattalar o'yiniga adashib kirib qolibdi ({bottom_pts} ochko).", "gif": GIF_LOSE_9}
+    ]
+
+    try:
+        pts_choice = random.choice(TOP_PTS_TEMPLATES)
+        await context.bot.send_animation(chat_id=chat_id, animation=pts_choice["gif"], caption=pts_choice["text"], parse_mode='HTML')
+        if top_ppg_player:
+            await asyncio.sleep(60) 
+            ppg_choice = random.choice(TOP_PPG_TEMPLATES)
+            await context.bot.send_animation(chat_id=chat_id, animation=ppg_choice["gif"], caption=ppg_choice["text"], parse_mode='HTML')
+        await asyncio.sleep(60) 
+        bot_choice = random.choice(BOTTOM_TEMPLATES)
+        await context.bot.send_animation(chat_id=chat_id, animation=bot_choice["gif"], caption=bot_choice["text"], parse_mode='HTML')
+    except Exception as e: print(f"Hafta o'rtasi xato: {e}")
+
+async def daily_provocation(context: ContextTypes.DEFAULT_TYPE):
+    cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
+    row = cursor.fetchone()
+    if not row: return 
+    chat_id = int(row[0])
+    stats = get_stats_by_period(days=3)
+    if stats and len(stats) >= 2:
+        sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
+        top1, bottom = html.escape(sorted_pts[0][0]), html.escape(sorted_pts[-1][0])
+        TEXT_TEMPLATES = [
+            f"🔥 Oxirgi 3 kunda {top1} quturib ketdi! Kimdir buni to'xtatadimi?\n{bottom}, sen umuman aralashma, borib choy damla!",
+            f"🗣 Eshitishimcha, {top1} hammangni 'shogirdim' deyapti.\nAyniqsa {bottom}, sen qachon oxirgi marta yutganding o'zi?",
+            f"🚑 {bottom} ni ahvoliga maymunlar yig'layapti.\n{top1} esa taxtda yallo qilyapti. Qani, bugun kim maydonga chiqadi?",
+            f"🎮 {top1} oxirgi paytlar joystikni 'sindirib' tashlayapti.\n{bottom} masalan, faqat to'p olib kelib beryapti...",
+            f"🤡 Reytingni qaranglar! {bottom} shunchaki 'ochko tarqatuvchi' xomiylik qilyapti.\n{top1} esa mazza qilib ochko yig'yapti.",
+            f"⚔️ Qani, jangchilar! {top1} ni bugun kimdir yutib, 'popugini' pasaytirib qo'yadimi?\n{bottom} dan umid yo'q!",
+            f"🤫 Hamma jim, oxirgi kunlar qiroli {top1} gapiryapti!\n{bottom}, sen gapirma, senga ruxsat yo'q!",
+            f"🎯 {top1} nishonga aniq uryapti oxirgi payt.\n{bottom} esa o'z darvozasiga... Bugun kim kimgadir 'dars' beradimi?",
+            f"🏆 {top1} o'zini 'Kibersport ustasi' deb e'lon qildi.\n{bottom}, sen indama, sen hali 'Beginner'san.",
+            f"🔥 Oxirgi kunlardagi qonli janglarda {top1} tirik qoldi.\n{bottom} esa... uni eslashni ham xohlamayman."
+        ]
+        msg = random.choice(TEXT_TEMPLATES)
+    else:
+        msg = "😴 O'liklar! 3 kundan beri hech kim tuzukroq o'ynamadi! Joystiklar zanglab qoldimi?"
+
+    PROVOCATION_GIFS = [
+        "CgACAgIAAxkBAAPSaoXtV4ObWISdS22M5bnctKMhMp8AAu8uAALJZdhLxChEqBW77G49BA",
+        "CgACAgIAAxkBAAPQaoXtECWaUNM94OLb5JgofX5kBK4AAlpDAAIBqoFJnwedkRUYrPw9BA",
+        "CgACAgIAAxkBAAPMaoXszpxA2B4nwpAlUF5vyFxHoSMAAuaNAAJVUjhKnmpsH2xmho09BA",
+        "CgACAgQAAxkBAAPKaoXsdFqMNM4xLwlBtZk8U7EEc84AAtkLAAJE7UlQ0YObLgABdEplPQQ",
+        "CgACAgIAAxkBAAPXaoXwI3rSOzFAE4qks7wYU6W5GP0AAvggAAKNo_hIrUSBpx_YY809BA",
+        "CgACAgQAAxkBAAPcaobl2D9Y4RFGne2d0Kf8t-NhQ6QAAiQDAAIjswRTK7vd7ugL1bs9BA",
+        "CgACAgQAAxkBAAPeaobl2whD8vugn1TXg33gxjs6iUUAAtYEAAJ21kBRyvDUiyzY28o9BA",
+        "CgACAgQAAxkBAAPgaobl3aoFfmQJWt2cX1TexEBo5skAAh4GAAIPjmRScbDwMX0EKRk9BA",
+        "CgACAgIAAxkBAAPiaobl42APKuamkr1_dpIQW8ehbeIAAtp1AAKEyChIO11GXGkH0gc9BA",
+        "CgACAgIAAxkBAAPkaobl7UG7o0mo8eb5ZqU1dIB1v3wAApgDAALn5VBKvEPRQpKYUSI9BA",
+        "CgACAgIAAxkBAAPmaobmBol5Z8Jq3pLXX8aBbaZ890wAAtsQAAI-vUhImXLrj4Ay1kI9BA",
+        "CgACAgQAAxkBAAPoaobmInjOh8CbCYBwpRGcRulx9XIAAmgKAAJ8FFBQBHFGEW6LfGY9BA",
+        "CgACAgIAAxkBAAPqaobmR4iRbvxvDkTLwG-U_t_TszwAAjYUAAICY1BIjtZ4B_6ChG89BA",
+        "CgACAgQAAxkBAAPsaobmYGR_YQGgczhjgkPGTxUBclMAAgEMAALi4kFQkP6QlJAC7TY9BA",
+        "CgACAgIAAxkBAAPuaobnku9otow45p0dWzgPhxzjboEAAuMUAALpSUFIpL-poiovxyU9BA"
+    ]
+    try:
+        await context.bot.send_animation(chat_id=chat_id, animation=random.choice(PROVOCATION_GIFS), caption=msg, parse_mode='HTML')
+    except Exception as e: print(f"16:00 xato: {e}")
+
+async def check_inactive_players(context: ContextTypes.DEFAULT_TYPE):
+    cursor.execute("SELECT value FROM settings WHERE key='group_chat_id'")
+    row = cursor.fetchone()
+    if not row: return 
+    chat_id = int(row[0])
+    cursor.execute("SELECT p1, p2 FROM matches")
+    all_players = set([p for match in cursor.fetchall() for p in match])
+    start_utc = (datetime.utcnow() - timedelta(days=5)).strftime('%Y-%m-%d %H:%M:%S')
+    cursor.execute("SELECT p1, p2 FROM matches WHERE date >= ?", (start_utc,))
+    active_players = set([p for match in cursor.fetchall() for p in match])
+    inactive_players = all_players - active_players
+    if inactive_players:
+        mentions = ", ".join([html.escape(p) for p in inactive_players])
+        msg = f"🤬 <b>\"Qayerlarda daydib yuribsan, guruhdan badarg‘a qilaymi? Kafangado bo‘lasan-ku!\"</b>\n\n{mentions} — 5 kundan beri maydonda ko'rinmaysizlar! Tirikmisizlar o'zi?"
+        try:
+            await context.bot.send_animation(chat_id=chat_id, animation="CgACAgIAAxkBAAO8aoXamtCs_ekIJh7Dj7X1N7r0Z9UAAqeuAAJtRTBI4RGqc2Mp8Mk9BA", caption=msg, parse_mode='HTML')
+        except Exception as e: print(f"Inactive xato: {e}")
+
+def main():
+    token = os.getenv("BOT_TOKEN")
+    if not token:
+        print("BOT_TOKEN topilmadi!")
+        return
+
+    threading.Thread(target=run_dummy_server, daemon=True).start()
+    app = Application.builder().token(token).build()
+    
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("jadval", show_table))
+    app.add_handler(CommandHandler("tarix", match_history))
+    app.add_handler(CommandHandler("stat", player_stat))
+    app.add_handler(CommandHandler("h2h", h2h_stats))
+    app.add_handler(CommandHandler("del", delete_match))
+    app.add_handler(MessageHandler(filters.ANIMATION, get_gif_id))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_match))
+
+    tz_uz = timezone(timedelta(hours=5))
+    
+    app.job_queue.run_daily(daily_summary, time=time(hour=23, minute=0, tzinfo=tz_uz))
+    app.job_queue.run_daily(weekly_summary, time=time(hour=20, minute=0, tzinfo=tz_uz), days=(6,))
+    app.job_queue.run_daily(weekly_analytics_chart, time=time(hour=20, minute=1, tzinfo=tz_uz), days=(6,))
+    app.job_queue.run_daily(monthly_analytics_chart, time=time(hour=12, minute=0, tzinfo=tz_uz))
+    app.job_queue.run_daily(check_inactive_players, time=time(hour=15, minute=0, tzinfo=tz_uz))
+    app.job_queue.run_daily(auto_announce, time=time(hour=17, minute=0, tzinfo=tz_uz), days=(3,))
+    
+    now = datetime.now(tz_uz)
+    first_16 = now.replace(hour=16, minute=0, second=0, microsecond=0)
+    if now > first_16: first_16 += timedelta(days=1)
+    app.job_queue.run_repeating(daily_provocation, interval=timedelta(days=2), first=first_16)
+
+    print("Bot ishga tushdi...")
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
