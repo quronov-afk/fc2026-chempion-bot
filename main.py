@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 
 # ==========================================
-# 1. SERVER VA BAZA SOZLAMALARI (KUCHAYTIRILGAN)
+# 1. SERVER VA BAZA SOZLAMALARI
 # ==========================================
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
@@ -28,7 +28,6 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"Bot is alive and running!")
 
-# Port band bo'lsa, uni kuch bilan tortib olish uchun maxsus klass
 class ReusableTCPServer(HTTPServer):
     allow_reuse_address = True
 
@@ -220,35 +219,42 @@ def create_comparison_chart(curr_stats, prev_stats, title_text):
     return buf
 
 # ==========================================
-# 4. SERTIFIKAT YASASH (PILLOW)
+# 4. SERTIFIKAT YASASH (YANGI DIZAYN BILAN)
 # ==========================================
 
 async def generate_certificate(context, user_id, username, pts, wins, ppg):
-    img = Image.new('RGB', (800, 600), color='#0B0C10')
+    try:
+        # Siz yuklagan rasmni ochamiz va aniq o'lchamga keltiramiz
+        img = Image.open("cert_bg.jpg").convert("RGBA")
+        img = img.resize((800, 1200)) 
+    except Exception as e:
+        print(f"Fon rasm topilmadi: {e}")
+        # Agar rasm topilmasa, zaxira qora fon chizamiz
+        img = Image.new('RGBA', (800, 1200), color='#0B0C10')
+
     draw = ImageDraw.Draw(img)
     
-    draw.rectangle([20, 20, 780, 580], outline='#F3E37C', width=8)
-    draw.rectangle([30, 30, 770, 570], outline='#66FCF1', width=2)
-    
+    # Shriftlarni yuklash (Katta va chiroyli)
     try:
-        font_title = ImageFont.truetype("DejaVuSans-Bold.ttf", 35)
-        font_name = ImageFont.truetype("DejaVuSans-Bold.ttf", 45)
-        font_text = ImageFont.truetype("DejaVuSans.ttf", 25)
+        font_title = ImageFont.truetype("DejaVuSans-Bold.ttf", 45)
+        font_name = ImageFont.truetype("DejaVuSans-Bold.ttf", 55)
+        font_stats = ImageFont.truetype("DejaVuSans-Bold.ttf", 32)
+        font_sub = ImageFont.truetype("DejaVuSans.ttf", 25)
     except:
         font_title = ImageFont.load_default()
         font_name = ImageFont.load_default()
-        font_text = ImageFont.load_default()
+        font_stats = ImageFont.load_default()
+        font_sub = ImageFont.load_default()
 
     def draw_centered(y, text, font, fill):
         try:
             bbox = draw.textbbox((0,0), text, font=font)
             w = bbox[2] - bbox[0]
         except:
-            w = len(text) * 12 
+            w = len(text) * 15 
         draw.text(((800-w)/2, y), text, font=font, fill=fill)
 
-    draw_centered(50, "🏆 FC DO'STLAR LIGASI - OY QIROLI 🏆", font_title, '#F3E37C')
-    
+    # 1. AVATARNI TILLA DOIRAGA JOYLASHTIRISH
     avatar_pasted = False
     if user_id:
         try:
@@ -257,32 +263,41 @@ async def generate_certificate(context, user_id, username, pts, wins, ppg):
                 file = await context.bot.get_file(photos.photos[0][-1].file_id)
                 avatar_bytes = await file.download_as_bytearray()
                 avatar = Image.open(io.BytesIO(avatar_bytes)).convert("RGBA")
-                avatar = avatar.resize((200, 200))
                 
-                mask = Image.new('L', (200, 200), 0)
+                # Avatarni tilla doiraning o'lchamiga moslash (taxminan 280x280)
+                avatar = avatar.resize((280, 280))
+                
+                # Dumaloq maska yaratish
+                mask = Image.new('L', (280, 280), 0)
                 draw_mask = ImageDraw.Draw(mask)
-                draw_mask.ellipse((0, 0, 200, 200), fill=255)
+                draw_mask.ellipse((0, 0, 280, 280), fill=255)
                 
-                draw.ellipse((295, 115, 505, 325), fill='#F3E37C')
-                img.paste(avatar, (300, 120), mask)
+                # Rasmni tilla doira ustiga yopishtirish (X: 260, Y: 160 atrofida)
+                img.paste(avatar, (260, 160), mask)
                 avatar_pasted = True
         except Exception as e:
             print(f"Avatar yuklashda xato: {e}")
             
     if not avatar_pasted:
-        draw.ellipse((300, 120, 500, 320), fill='#1F2833', outline='#F3E37C', width=5)
-        draw_centered(190, "👑", font_name, '#F3E37C')
+        # Rasm topilmasa toj chizib qo'yamiz
+        draw_centered(260, "👑", font_name, '#F3E37C')
 
-    draw_centered(360, f"👑 {username} 👑", font_name, '#66FCF1')
+    # 2. MATNLARNI JOYLASHTIRISH (Doira va Pult o'rtasida)
+    # Y koordinatalari (520 dan 780 gacha bo'lgan bo'shliqda)
     
-    stats_text = f"📊 Ochkolar: {pts}   |   ⚔️ G'alabalar: {wins}   |   📈 Koeffitsiyent: {ppg:.2f}"
-    draw_centered(440, stats_text, font_text, 'white')
+    draw_centered(520, "🏆 OY QIROLI 🏆", font_title, '#F3E37C') # Tilla rang
+    
+    draw_centered(600, f"{username}", font_name, '#66FCF1') # Neon havorang
+    
+    stats_text = f"Ochkolar: {pts}   |   G'alabalar: {wins}   |   PPG: {ppg:.2f}"
+    draw_centered(700, stats_text, font_stats, '#FFFFFF') # Oq rang
     
     month_name = datetime.now().strftime('%m-%Y')
-    draw_centered(500, f"Yengilmas kibersport chempioni - {month_name}", font_text, '#C5C6C7')
-    
+    draw_centered(780, f"FC Do'stlar Ligasi Yengilmas Chempioni • {month_name}", font_sub, '#C5C6C7') # Och kulrang
+
+    # Rasmni xotiraga saqlash va yuborishga tayyorlash
     buf = io.BytesIO()
-    img.save(buf, format='PNG')
+    img.convert('RGB').save(buf, format='JPEG', quality=95)
     buf.seek(0)
     return buf
 
@@ -307,7 +322,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📜 /tarix - Oxirgi 7 kunlik o'yinlar\n"
         "👤 <code>/stat @user</code> - Shaxsiy statistika\n"
         "⚔️ <code>/h2h @user1 @user2</code> - O'zaro tarix\n"
-        "📺 <code>/del ID</code> - Xatoni o'chirish"
+        "📺 <code>/del ID</code> - Xatoni o'chirish\n"
+        "🖼 <code>/testcert</code> - Sertifikat dizaynini ko'rish"
     )
     await update.effective_message.reply_text(text, parse_mode='HTML')
 
@@ -471,6 +487,22 @@ async def h2h_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (f"⚔️ <b>EL-CLASICO: {html.escape(p1)} 🆚 {html.escape(p2)}</b>\n\n📊 Jami to'qnashuvlar: <b>{len(games)} ta</b>\n"
             f"👑 {html.escape(p1)} g'alabasi: <b>{p1_wins} ta</b>\n😭 {html.escape(p2)} g'alabasi: <b>{p2_wins} ta</b>\n🤝 Durang: <b>{draws} ta</b>")
     await update.effective_message.reply_text(text, parse_mode='HTML')
+
+# TEST UCHUN MAXSUS BUYRUQ
+async def test_cert(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    username = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
+    
+    # Test ma'lumotlari
+    pts = 45
+    wins = 15
+    ppg = 2.50
+
+    try:
+        cert_buf = await generate_certificate(context, user_id, username, pts, wins, ppg)
+        await update.effective_message.reply_photo(photo=cert_buf, caption="Mana, bot yasaydigan Oltin Sertifikat! 🏆🎮")
+    except Exception as e:
+        await update.effective_message.reply_text(f"Xatolik chiqdi: {e}")
 
 # ==========================================
 # 6. AVTOMATIK XABARLAR VA GRAFIKLAR
@@ -711,6 +743,10 @@ def main():
     app.add_handler(CommandHandler("stat", player_stat))
     app.add_handler(CommandHandler("h2h", h2h_stats))
     app.add_handler(CommandHandler("del", delete_match))
+    
+    # Yangi buyruq!
+    app.add_handler(CommandHandler("testcert", test_cert))
+    
     app.add_handler(MessageHandler(filters.ANIMATION, get_gif_id))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_match))
 
