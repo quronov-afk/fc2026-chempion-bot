@@ -72,7 +72,7 @@ DAILY_LOSER_MEMES = [
 ]
 
 # ==========================================
-# 3. STATISTIKANI HISOBLASH (ALGORITMLAR)
+# 3. STATISTIKANI HISOBLASH (YANGI ADOLATLI ALGORITM)
 # ==========================================
 
 def get_stats_by_period(days=None, today_only=False):
@@ -95,28 +95,56 @@ def get_stats_by_period(days=None, today_only=False):
     for p1, p2, s1, s2 in matches:
         for p in (p1, p2):
             if p not in stats:
-                stats[p] = {'games': 0, 'w': 0, 'd': 0, 'l': 0, 'gf': 0, 'ga': 0, 'pts': 0}
+                stats[p] = {
+                    'games': 0, 'w': 0, 'd': 0, 'l': 0, 'gf': 0, 'ga': 0, 'pts': 0,
+                    'h2h': {} # Raqiblarni alohida hisoblash uchun
+                }
         
+        # Har bir raqibni ro'yxatga qo'shish
+        if p2 not in stats[p1]['h2h']: stats[p1]['h2h'][p2] = {'games': 0, 'pts': 0}
+        if p1 not in stats[p2]['h2h']: stats[p2]['h2h'][p1] = {'games': 0, 'pts': 0}
+
         stats[p1]['games'] += 1
         stats[p2]['games'] += 1
         stats[p1]['gf'] += s1
         stats[p2]['gf'] += s2
         stats[p1]['ga'] += s2
         stats[p2]['ga'] += s1
+        stats[p1]['h2h'][p2]['games'] += 1
+        stats[p2]['h2h'][p1]['games'] += 1
         
         if s1 > s2:
             stats[p1]['w'] += 1
             stats[p1]['pts'] += 3
             stats[p2]['l'] += 1
+            stats[p1]['h2h'][p2]['pts'] += 3
         elif s1 < s2:
             stats[p2]['w'] += 1
             stats[p2]['pts'] += 3
             stats[p1]['l'] += 1
+            stats[p2]['h2h'][p1]['pts'] += 3
         else:
             stats[p1]['d'] += 1
             stats[p2]['d'] += 1
             stats[p1]['pts'] += 1
             stats[p2]['pts'] += 1
+            stats[p1]['h2h'][p2]['pts'] += 1
+            stats[p2]['h2h'][p1]['pts'] += 1
+
+    # Haqiqiy Koeffitsiyentni (True PPG) hisoblash
+    for p, data in stats.items():
+        total_h2h_ppg = 0
+        unique_opponents = len(data['h2h'])
+        
+        for opp, h2h_data in data['h2h'].items():
+            total_h2h_ppg += h2h_data['pts'] / h2h_data['games']
+            
+        if unique_opponents > 0:
+            data['true_ppg'] = total_h2h_ppg / unique_opponents
+        else:
+            data['true_ppg'] = 0.0
+            
+        data['unique_opponents'] = unique_opponents
             
     return stats
 
@@ -204,8 +232,10 @@ async def show_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
-    valid_ppg = {k: v for k, v in stats.items() if v['games'] >= 3}
-    sorted_ppg = sorted(valid_ppg.items(), key=lambda x: (x[1]['pts'] / x[1]['games']), reverse=True)
+    
+    # Sifat reytingi: Kamida 3 ta o'yin VA kamida 2 xil raqib bilan o'ynagan bo'lishi shart!
+    valid_ppg = {k: v for k, v in stats.items() if v['games'] >= 3 and v['unique_opponents'] >= 2}
+    sorted_ppg = sorted(valid_ppg.items(), key=lambda x: x[1]['true_ppg'], reverse=True)
 
     text = "🏆 <b>FC DO'STLAR LIGASI (Umumiy Tarix)</b> 🏆\n\n"
     text += "📊 <b>1. UMUMIY OCHKOLAR (Faollik)</b>\n<pre>"
@@ -219,11 +249,11 @@ async def show_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text += "</pre>\n"
 
     if sorted_ppg:
-        text += "📈 <b>2. KOEFFITSIYENT (Sifat - Min 3 o'yin)</b>\n<pre>"
+        text += "📈 <b>2. HAQIQIY KOEFFITSIYENT (Sifat)</b>\n<i>(Kamida 2 xil raqibga qarshi)</i>\n<pre>"
         for idx, (player, s) in enumerate(sorted_ppg, 1):
-            ppg = s['pts'] / s['games']
+            ppg = s['true_ppg']
             p_esc = html.escape(player).ljust(12)[:12]
-            text += f"{idx}. {p_esc} | {ppg:.2f} PPG | ({s['games']} o'yin)\n"
+            text += f"{idx}. {p_esc} | {ppg:.2f} PPG | ({s['unique_opponents']} raqib)\n"
         text += "</pre>"
 
     await update.effective_message.reply_text(text, parse_mode='HTML')
@@ -290,14 +320,14 @@ async def player_stat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     s = stats[player_key]
     gd = s['gf'] - s['ga']
-    ppg = s['pts'] / s['games']
+    ppg = s['true_ppg']
     
     text = (
         f"👤 <b>FUTBOLCHI DOSYESI: {html.escape(player_key)}</b>\n\n"
         f"🏟 Jami o'yinlar: <b>{s['games']} ta</b>\n"
         f"✅ G'alaba: <b>{s['w']}</b> | 🤝 Durang: <b>{s['d']}</b> | ❌ Mag'lubiyat: <b>{s['l']}</b>\n\n"
         f"⚽️ To'plar nisbati: <b>{s['gf']} - {s['ga']}</b> (Farq: {gd})\n"
-        f"📊 Koeffitsiyent: <b>{ppg:.2f}</b>"
+        f"📊 Haqiqiy Koeffitsiyent: <b>{ppg:.2f}</b>"
     )
     await update.effective_message.reply_text(text, parse_mode='HTML')
 
@@ -423,11 +453,11 @@ async def auto_announce(context: ContextTypes.DEFAULT_TYPE):
     bottom_player = html.escape(sorted_pts[-1][0])
     bottom_pts = sorted_pts[-1][1]['pts']
 
-    valid_ppg = {k: v for k, v in stats.items() if v['games'] >= 3}
+    valid_ppg = {k: v for k, v in stats.items() if v['games'] >= 3 and v['unique_opponents'] >= 2}
     if valid_ppg:
-        sorted_ppg = sorted(valid_ppg.items(), key=lambda x: (x[1]['pts'] / x[1]['games']), reverse=True)
+        sorted_ppg = sorted(valid_ppg.items(), key=lambda x: x[1]['true_ppg'], reverse=True)
         top_ppg_player = html.escape(sorted_ppg[0][0])
-        top_ppg = sorted_ppg[0][1]['pts'] / sorted_ppg[0][1]['games']
+        top_ppg = sorted_ppg[0][1]['true_ppg']
     else:
         top_ppg_player = None
 
@@ -602,21 +632,14 @@ def main():
     time_23 = time(hour=23, minute=0, tzinfo=tz_uz)
     time_20 = time(hour=20, minute=0, tzinfo=tz_uz) 
     time_17 = time(hour=17, minute=0, tzinfo=tz_uz)
+    time_16 = time(hour=16, minute=0, tzinfo=tz_uz)
     time_15 = time(hour=15, minute=0, tzinfo=tz_uz)
     
-    # 1. Kunlik sarhisob (Har kuni 23:00 da)
     app.job_queue.run_daily(daily_summary, time=time_23)
-    
-    # 2. Haftalik sarhisob (Yakshanba kuni 20:00 da) -> 6 = Yakshanba
     app.job_queue.run_daily(weekly_summary, time=time_20, days=(6,))
-    
-    # 3. Har kuni 15:00 da (5 kun o'ynamaganlarni tekshirish)
     app.job_queue.run_daily(check_inactive_players, time=time_15)
-
-    # 4. Kazo-kazo memlar (Haftada bir marta, Payshanba kuni 17:00 da) -> 3 = Payshanba
     app.job_queue.run_daily(auto_announce, time=time_17, days=(3,))
-
-    # 5. Jangga chorlov (Har 2 kunda 16:00 da)
+    
     now = datetime.now(tz_uz)
     first_16 = now.replace(hour=16, minute=0, second=0, microsecond=0)
     if now > first_16:
