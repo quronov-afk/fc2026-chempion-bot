@@ -280,7 +280,7 @@ async def start_cup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cursor.execute("INSERT INTO cup_matches (cup_id, p1, p2, status) VALUES (?, ?, ?, 'pending')", (cup[0], p2, p1)) 
     cursor.execute("UPDATE cups SET status='active' WHERE id=?", (cup[0],))
     conn.commit()
-    await update.effective_message.reply_text(f"🔥 <b>{html.escape(cup_name)}</b> RASMAN BOSHLANDI!\n\nFormat: Uy va Safar.\nNatijani kiritishda heshteg ishlating: `@Raqib yutdim 3-1 #{html.escape(cup_name)}`", parse_mode='HTML')
+    await update.effective_message.reply_text(f"🔥 <b>{html.escape(cup_name)}</b> RASMAN BOSHLANDI!\n\nFormat: Uy va Safar.\nNatijani odatdagidek kiritavering: `@Raqib yutdim 3-1`\n<i>(Bot o'zi avtomat shu turnirga yozib qo'yadi!)</i>", parse_mode='HTML')
 
 async def cup_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -356,7 +356,7 @@ async def end_cup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e: print(f"Sertifikat xato: {e}")
 
 # ==========================================
-# 5. ASOSIY BUYRUQLAR (HURMAT BILAN)
+# 5. ASOSIY BUYRUQLAR (AQLLI AVTOMATLASHTIRISH)
 # ==========================================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -365,8 +365,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn.commit()
     text = (
         "⚽ <b>PES/FC LIGASI BOTI!</b>\n\n"
-        "<b>Oddiy o'yin:</b> `@ali yutdim 3-1`\n"
-        "<b>Turnir o'yini:</b> `@ali yutdim 3-1 #YozgiKubok`\n\n"
+        "<b>Natija kiritish:</b> `@ali yutdim 3-1`\n"
+        "<i>(Agar guruhda turnir ketyotgan bo'lsa, bot o'zi avtomat o'sha turnirga yozib qo'yadi!)</i>\n\n"
         "<b>Asosiy:</b> /jadval, /tarix, /stat, /h2h\n"
         "<b>Turnir:</b> /new_cup, /join, /start_cup, /cup_table, /end_cup"
     )
@@ -404,36 +404,53 @@ async def handle_match(update: Update, context: ContextTypes.DEFAULT_TYPE):
         my_esc = html.escape(my_raw)
         opp_esc = html.escape(opp_raw)
 
+        # AQLLI AVTOMATLASHTIRISH: Agar heshteg yozilmasa, faol turnirni qidiramiz
+        if not cup_hashtag:
+            cursor.execute("SELECT name FROM cups WHERE chat_id=? AND status='active'", (chat_id,))
+            active_cups = cursor.fetchall()
+            if len(active_cups) == 1:
+                cup_hashtag = active_cups[0][0] # Avtomat topildi!
+            elif len(active_cups) > 1:
+                await update.effective_message.reply_text("Guruhda bir nechta faol turnir bor! Iltimos, qaysi biriga ekanligini heshteg bilan yozing (Masalan: #YozgiKubok)")
+                return
+
+        is_cup_match = False
+        msg_prefix = ""
+
         if cup_hashtag:
             cursor.execute("SELECT id FROM cups WHERE chat_id=? AND LOWER(name)=LOWER(?) AND status='active'", (chat_id, cup_hashtag))
             cup = cursor.fetchone()
-            if not cup:
-                await update.effective_message.reply_text(f"❌ #{html.escape(cup_hashtag)} nomli faol turnir topilmadi!")
-                return
-            cursor.execute('''SELECT id FROM cup_matches WHERE cup_id=? AND status='pending' 
-                              AND ((LOWER(p1)=LOWER(?) AND LOWER(p2)=LOWER(?)) OR (LOWER(p1)=LOWER(?) AND LOWER(p2)=LOWER(?))) LIMIT 1''', 
-                           (cup[0], my_raw, opp_raw, opp_raw, my_raw))
-            cup_match = cursor.fetchone()
-            if not cup_match:
-                await update.effective_message.reply_text(f"🛑 Hurmatli ishtirokchilar, sizlar #{html.escape(cup_hashtag)} doirasida o'ynab bo'lgansiz (Limit tugagan) yoki ro'yxatda yo'qsiz!")
-                return
-            cursor.execute("UPDATE cup_matches SET p1=?, p2=?, p1_score=?, p2_score=?, status='played', date_played=CURRENT_TIMESTAMP WHERE id=?", 
-                           (my_raw, opp_raw, my_goals, opp_goals, cup_match[0]))
-            conn.commit()
-            msg_prefix = f"🏆 <b>#{html.escape(cup_hashtag)}:</b>\n"
-        else:
+            if cup:
+                cursor.execute('''SELECT id FROM cup_matches WHERE cup_id=? AND status='pending' 
+                                  AND ((LOWER(p1)=LOWER(?) AND LOWER(p2)=LOWER(?)) OR (LOWER(p1)=LOWER(?) AND LOWER(p2)=LOWER(?))) LIMIT 1''', 
+                               (cup[0], my_raw, opp_raw, opp_raw, my_raw))
+                cup_match = cursor.fetchone()
+                if cup_match:
+                    cursor.execute("UPDATE cup_matches SET p1=?, p2=?, p1_score=?, p2_score=?, status='played', date_played=CURRENT_TIMESTAMP WHERE id=?", 
+                                   (my_raw, opp_raw, my_goals, opp_goals, cup_match[0]))
+                    conn.commit()
+                    msg_prefix = f"🏆 <b>#{html.escape(cup_hashtag)}:</b>\n"
+                    is_cup_match = True
+                else:
+                    if match.group(5): # Agar heshteg ataylab yozilgan bo'lsa
+                        await update.effective_message.reply_text(f"🛑 Hurmatli ishtirokchilar, sizlar #{html.escape(cup_hashtag)} doirasida o'ynab bo'lgansiz (Limit tugagan) yoki ro'yxatda yo'qsiz!")
+                        return
+            else:
+                if match.group(5):
+                    await update.effective_message.reply_text(f"❌ #{html.escape(cup_hashtag)} nomli faol turnir topilmadi!")
+                    return
+
+        # Agar turnir o'yini bo'lmasa (yoki limit tugagan bo'lsa), oddiy o'yin sifatida yozamiz
+        if not is_cup_match:
             cursor.execute("INSERT INTO matches (chat_id, p1, p2, p1_score, p2_score) VALUES (?, ?, ?, ?, ?)",
                            (chat_id, my_raw, opp_raw, my_goals, opp_goals))
             conn.commit()
             msg_prefix = ""
 
-        # Hurmatli va sportcha natija xabarlari
         if my_goals > opp_goals: 
             farq = my_goals - opp_goals
-            if farq >= 3:
-                msg = f"{msg_prefix}🔥 <b>Ajoyib o'yin!</b> {my_esc} {opp_esc} ustidan yirik hisobda g'alaba qozondi ({my_goals}:{opp_goals})!"
-            else:
-                msg = f"{msg_prefix}✅ <b>G'alaba!</b> {my_esc} {opp_esc} ustidan ishonchli g'alabaga erishdi ({my_goals}:{opp_goals})."
+            if farq >= 3: msg = f"{msg_prefix}🔥 <b>Ajoyib o'yin!</b> {my_esc} {opp_esc} ustidan yirik hisobda g'alaba qozondi ({my_goals}:{opp_goals})!"
+            else: msg = f"{msg_prefix}✅ <b>G'alaba!</b> {my_esc} {opp_esc} ustidan ishonchli g'alabaga erishdi ({my_goals}:{opp_goals})."
         elif my_goals < opp_goals: 
             msg = f"{msg_prefix}👏 <b>Chiroyli o'yin!</b> {my_esc} mag'lubiyatni mardona tan oldi. {opp_esc} g'alaba qozondi ({opp_goals}:{my_goals})!"
         else: 
@@ -542,7 +559,7 @@ async def test_cert(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(f"Xatolik chiqdi: {e}")
 
 # ==========================================
-# 7. AVTOMATIK XABARLAR (TARTIBLI VA HURMAT BILAN)
+# 7. AVTOMATIK XABARLAR
 # ==========================================
 
 async def run_for_all_groups(context, func, *args, **kwargs):
@@ -554,7 +571,7 @@ async def run_for_all_groups(context, func, *args, **kwargs):
 async def job_daily_summary(context: ContextTypes.DEFAULT_TYPE):
     async def _task(ctx, chat_id):
         stats = get_stats_by_period(chat_id, today_only=True)
-        if not stats: return # Faqat o'yin bo'lgan kunlari ishlaydi
+        if not stats: return 
         sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
         winner = html.escape(sorted_pts[0][0])
         loser = html.escape(sorted_pts[-1][0])
