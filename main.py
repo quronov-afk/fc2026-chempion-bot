@@ -284,21 +284,17 @@ async def start_cup(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cup_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    
-    # AQLLI QIDIRUV: Agar nom yozilmasa, faol turnirni o'zi topadi
     if not context.args:
         cursor.execute("SELECT name FROM cups WHERE chat_id=? AND status='active'", (chat_id,))
         active_cups = cursor.fetchall()
-        if len(active_cups) == 1:
-            cup_name = active_cups[0][0]
+        if len(active_cups) == 1: cup_name = active_cups[0][0]
         elif len(active_cups) > 1:
             await update.effective_message.reply_text("Guruhda bir nechta faol turnir bor! Iltimos, nomini yozing: `/cup_table YozgiKubok`", parse_mode='HTML')
             return
         else:
-            await update.effective_message.reply_text("Hozircha faol turnir yo'q. Turnir nomini yozing: `/cup_table YozgiKubok`", parse_mode='HTML')
+            await update.effective_message.reply_text("Hozircha faol turnir yo'q.", parse_mode='HTML')
             return
-    else:
-        cup_name = context.args[0].replace("#", "")
+    else: cup_name = context.args[0].replace("#", "")
         
     cursor.execute("SELECT id FROM cups WHERE chat_id=? AND name=?", (chat_id, cup_name))
     cup = cursor.fetchone()
@@ -325,20 +321,57 @@ async def cup_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text += "</pre>"
     await update.effective_message.reply_text(text, parse_mode='HTML')
 
-async def end_cup(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# YANGI FUNKSIYA: O'YINLAR TAQVIMI VA QOLGAN O'YINLAR
+async def cup_fixtures(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    
-    # AQLLI QIDIRUV
     if not context.args:
-        cursor.execute("SELECT name FROM cups WHERE chat_id=? AND status='active'", (chat_id,))
+        cursor.execute("SELECT id, name FROM cups WHERE chat_id=? AND status='active'", (chat_id,))
         active_cups = cursor.fetchall()
         if len(active_cups) == 1:
-            cup_name = active_cups[0][0]
+            cup_id, cup_name = active_cups[0]
+        elif len(active_cups) > 1:
+            await update.effective_message.reply_text("Guruhda bir nechta faol turnir bor! `/taqvim YozgiKubok` deb yozing.", parse_mode='HTML')
+            return
         else:
-            await update.effective_message.reply_text("Turnir nomini yozing: `/end_cup YozgiKubok`", parse_mode='HTML')
+            await update.effective_message.reply_text("Hozircha faol turnir yo'q.", parse_mode='HTML')
             return
     else:
         cup_name = context.args[0].replace("#", "")
+        cursor.execute("SELECT id, name FROM cups WHERE chat_id=? AND name=?", (chat_id, cup_name))
+        cup = cursor.fetchone()
+        if not cup:
+            await update.effective_message.reply_text("❌ Bunday turnir topilmadi.")
+            return
+        cup_id, cup_name = cup
+
+    cursor.execute("SELECT p1, p2 FROM cup_matches WHERE cup_id=? AND status='pending'", (cup_id,))
+    pending = cursor.fetchall()
+    if not pending:
+        await update.effective_message.reply_text(f"✅ <b>{html.escape(cup_name)}</b> doirasida hamma o'yinlar o'ynab bo'lingan!", parse_mode='HTML')
+        return
+
+    pairs = {}
+    for p1, p2 in pending:
+        pair = tuple(sorted([p1, p2], key=lambda x: x.lower()))
+        pairs[pair] = pairs.get(pair, 0) + 1
+
+    text = f"📅 <b>{html.escape(cup_name)} - QOLGAN O'YINLAR:</b>\n\n"
+    for (p1, p2), count in sorted(pairs.items()):
+        text += f"⚔️ {html.escape(p1)} 🆚 {html.escape(p2)} (<b>{count} ta o'yin</b>)\n"
+    
+    text += "\n<i>Bo'sh vaqt topib o'ynab qo'yamiz!</i> 🎮"
+    await update.effective_message.reply_text(text, parse_mode='HTML')
+
+async def end_cup(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    if not context.args:
+        cursor.execute("SELECT name FROM cups WHERE chat_id=? AND status='active'", (chat_id,))
+        active_cups = cursor.fetchall()
+        if len(active_cups) == 1: cup_name = active_cups[0][0]
+        else:
+            await update.effective_message.reply_text("Turnir nomini yozing: `/end_cup YozgiKubok`", parse_mode='HTML')
+            return
+    else: cup_name = context.args[0].replace("#", "")
         
     cursor.execute("SELECT id, status FROM cups WHERE chat_id=? AND name=?", (chat_id, cup_name))
     cup = cursor.fetchone()
@@ -377,7 +410,7 @@ async def end_cup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e: print(f"Sertifikat xato: {e}")
 
 # ==========================================
-# 5. ASOSIY BUYRUQLAR (AQLLI AVTOMATLASHTIRISH)
+# 5. ASOSIY BUYRUQLAR
 # ==========================================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -389,7 +422,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "<b>Natija kiritish:</b> `@ali yutdim 3-1`\n"
         "<i>(Agar guruhda turnir ketyotgan bo'lsa, bot o'zi avtomat o'sha turnirga yozib qo'yadi!)</i>\n\n"
         "<b>Asosiy:</b> /jadval, /tarix, /stat, /h2h\n"
-        "<b>Turnir:</b> /new_cup, /join, /start_cup, /cup_table, /end_cup"
+        "<b>Turnir:</b> /new_cup, /join, /start_cup, /cup_table, /taqvim, /end_cup"
     )
     await update.effective_message.reply_text(text, parse_mode='HTML')
 
@@ -430,9 +463,6 @@ async def handle_match(update: Update, context: ContextTypes.DEFAULT_TYPE):
             active_cups = cursor.fetchall()
             if len(active_cups) == 1:
                 cup_hashtag = active_cups[0][0] 
-            elif len(active_cups) > 1:
-                await update.effective_message.reply_text("Guruhda bir nechta faol turnir bor! Iltimos, qaysi biriga ekanligini heshteg bilan yozing (Masalan: #YozgiKubok)")
-                return
 
         msg_prefix = ""
 
@@ -449,8 +479,11 @@ async def handle_match(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                    (my_raw, opp_raw, my_goals, opp_goals, cup_match[0]))
                     conn.commit()
                     msg_prefix = f"🏆 <b>#{html.escape(cup_hashtag)}:</b>\n"
+                else:
+                    if match.group(5): 
+                        await update.effective_message.reply_text(f"🛑 Hurmatli ishtirokchilar, sizlar #{html.escape(cup_hashtag)} doirasida o'ynab bo'lgansiz (Limit tugagan) yoki ro'yxatda yo'qsiz!")
+                        return
 
-        # HAMMA O'YINLAR (Kubok yoki O'rtoqlik) UMUMIY TARIXGA YOZILADI!
         cursor.execute("INSERT INTO matches (chat_id, p1, p2, p1_score, p2_score) VALUES (?, ?, ?, ?, ?)",
                        (chat_id, my_raw, opp_raw, my_goals, opp_goals))
         conn.commit()
@@ -567,7 +600,7 @@ async def test_cert(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(f"Xatolik chiqdi: {e}")
 
 # ==========================================
-# 7. AVTOMATIK XABARLAR
+# 7. AVTOMATIK XABARLAR (AQLLI CHORLOV BILAN)
 # ==========================================
 
 async def run_for_all_groups(context, func, *args, **kwargs):
@@ -623,56 +656,40 @@ async def job_monthly_cert(context: ContextTypes.DEFAULT_TYPE):
         except: pass
     await run_for_all_groups(context, _task)
 
-async def job_cup_reminders(context: ContextTypes.DEFAULT_TYPE):
-    async def _task(ctx, chat_id):
-        cursor.execute("SELECT id, name FROM cups WHERE chat_id=? AND status='active'", (chat_id,))
-        cups = cursor.fetchall()
-        for cup_id, cup_name in cups:
-            cursor.execute("SELECT p1, p2 FROM cup_matches WHERE cup_id=? AND status='pending'", (cup_id,))
-            pending = cursor.fetchall()
-            if not pending: continue
-            counts = {}
-            for p1, p2 in pending:
-                counts[p1] = counts.get(p1, 0) + 1
-                counts[p2] = counts.get(p2, 0) + 1
-            msg = f"🔔 <b>#{html.escape(cup_name)} doirasida o'ynalmagan o'yinlar:</b>\n\n"
-            for p, c in sorted(counts.items(), key=lambda x: x[1], reverse=True): msg += f"👉 {html.escape(p)}: <b>{c} ta o'yin</b> qoldi.\n"
-            msg += "\nBo'sh vaqt topib, o'yinlarni davom ettirib qo'yamiz! 🎮"
-            await ctx.bot.send_message(chat_id=chat_id, text=msg, parse_mode='HTML')
-    await run_for_all_groups(context, _task)
-
+# AQLLI CHORLOV (Chempionat o'yinlarini nishonga oladi)
 async def job_daily_provocation(context: ContextTypes.DEFAULT_TYPE):
     async def _task(ctx, chat_id):
+        # 1. Avval faol turnirni qidiramiz
+        cursor.execute("SELECT id, name FROM cups WHERE chat_id=? AND status='active'", (chat_id,))
+        active_cups = cursor.fetchall()
+        if active_cups:
+            cup_id, cup_name = random.choice(active_cups)
+            cursor.execute("SELECT p1, p2 FROM cup_matches WHERE cup_id=? AND status='pending'", (cup_id,))
+            pending = cursor.fetchall()
+            if pending:
+                p1, p2 = random.choice(pending)
+                p1, p2 = html.escape(p1), html.escape(p2)
+                TEXT_TEMPLATES = [
+                    f"🔥 <b>#{html.escape(cup_name)}</b> qizg'in pallada!\n\n{p1} va {p2}, qachon maydonga tushasizlar? Muxlislar kutyapti! 🎮",
+                    f"🗣 Reyting o'zgarishi mumkin!\n\n{p1} 🆚 {p2} to'qnashuvi qachon bo'ladi? Tezroq o'ynab jadvalni yangilanglar! 🏆",
+                    f"⚔️ Chempionatning eng muhim o'yinlaridan biri!\n\n{p1} va {p2}, joystikni olinglar-da, masalani maydonda hal qilinglar! Kim kuchli? 🔥"
+                ]
+                msg = random.choice(TEXT_TEMPLATES)
+                await ctx.bot.send_animation(chat_id=chat_id, animation=GIF_WIN_1, caption=msg, parse_mode='HTML')
+                return 
+
+        # 2. Agar turnir yo'q bo'lsa, oddiy 3 kunlik statistika bo'yicha chorlov
         stats = get_stats_by_period(chat_id, days=3)
         if stats and len(stats) >= 2:
             sorted_pts = sorted(stats.items(), key=lambda x: (x[1]['pts'], x[1]['gf'] - x[1]['ga']), reverse=True)
             top1, bottom = html.escape(sorted_pts[0][0]), html.escape(sorted_pts[-1][0])
-            
             TEXT_TEMPLATES = [
-                f"🔥 Oxirgi 3 kunda {top1} ajoyib o'yin ko'rsatmoqda! Kimdir uning g'alabali seriyasiga chek qo'yadimi?\n{bottom}, imkoniyatni qo'ldan boy bermang!",
+                f"🔥 Oxirgi 3 kunda {top1} ajoyib o'yin ko'rsatmoqda! Kimdir uning g'alabali seriyasiga chek qo'yadimi?",
                 f"🗣 {top1} hozircha reyting peshqadami. {bottom}, bugun sizning kuningiz bo'lishi mumkin, jangga marhamat!",
-                f"🏆 Chempionlik uchun kurash qizg'in pallada! {top1} peshqadam, lekin vaziyat har an o'zgarishi mumkin.",
-                f"🎮 Barchaga yaxshi kayfiyat! {top1} o'z o'rnini mustahkamlamoqda. Qani, bugun kim maydonga tushadi?",
-                f"⚔️ Do'stona raqobat davom etadi! {top1} ni to'xtatadigan munosib raqib bormi?"
+                f"🎮 Barchaga yaxshi kayfiyat! {top1} o'z o'rnini mustahkamlamoqda. Qani, bugun kim maydonga tushadi?"
             ]
             msg = random.choice(TEXT_TEMPLATES)
             await ctx.bot.send_animation(chat_id=chat_id, animation=GIF_WIN_1, caption=msg, parse_mode='HTML')
-    await run_for_all_groups(context, _task)
-
-async def check_inactive_players(context: ContextTypes.DEFAULT_TYPE):
-    async def _task(ctx, chat_id):
-        cursor.execute("SELECT p1, p2 FROM matches WHERE chat_id=?", (chat_id,))
-        all_players = set([p for match in cursor.fetchall() for p in match])
-        start_utc = (datetime.utcnow() - timedelta(days=5)).strftime('%Y-%m-%d %H:%M:%S')
-        cursor.execute("SELECT p1, p2 FROM matches WHERE chat_id=? AND date >= ?", (chat_id, start_utc))
-        active_players = set([p for match in cursor.fetchall() for p in match])
-        inactive_players = all_players - active_players
-        if inactive_players:
-            mentions = ", ".join([html.escape(p) for p in inactive_players])
-            msg = f"🔔 <b>Hurmatli ishtirokchilar!</b>\n\n{mentions} — 5 kundan beri maydonda ko'rinmaysizlar. Bo'sh vaqt topib, o'yinlarni davom ettirib qo'yamiz! 🎮"
-            try:
-                await ctx.bot.send_animation(chat_id=chat_id, animation="CgACAgIAAxkBAAO8aoXamtCs_ekIJh7Dj7X1N7r0Z9UAAqeuAAJtRTBI4RGqc2Mp8Mk9BA", caption=msg, parse_mode='HTML')
-            except Exception as e: print(f"Inactive xato: {e}")
     await run_for_all_groups(context, _task)
 
 def main():
@@ -693,6 +710,7 @@ def main():
     app.add_handler(CommandHandler("join", join_cup))
     app.add_handler(CommandHandler("start_cup", start_cup))
     app.add_handler(CommandHandler("cup_table", cup_table))
+    app.add_handler(CommandHandler("taqvim", cup_fixtures)) # YANGI BUYRUQ
     app.add_handler(CommandHandler("end_cup", end_cup))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_match))
 
@@ -701,13 +719,8 @@ def main():
     app.job_queue.run_daily(job_daily_summary, time=time(hour=23, minute=0, tzinfo=tz_uz))
     app.job_queue.run_daily(job_weekly_chart, time=time(hour=20, minute=1, tzinfo=tz_uz), days=(6,))
     app.job_queue.run_daily(job_monthly_cert, time=time(hour=12, minute=0, tzinfo=tz_uz))
-    app.job_queue.run_daily(check_inactive_players, time=time(hour=15, minute=0, tzinfo=tz_uz))
     
     now = datetime.now(tz_uz)
-    first_19 = now.replace(hour=19, minute=0, second=0, microsecond=0)
-    if now > first_19: first_19 += timedelta(days=1)
-    app.job_queue.run_repeating(job_cup_reminders, interval=timedelta(days=2), first=first_19)
-    
     first_16 = now.replace(hour=16, minute=0, second=0, microsecond=0)
     if now > first_16: first_16 += timedelta(days=1)
     app.job_queue.run_repeating(job_daily_provocation, interval=timedelta(days=2), first=first_16)
