@@ -284,10 +284,22 @@ async def start_cup(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cup_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    
+    # AQLLI QIDIRUV: Agar nom yozilmasa, faol turnirni o'zi topadi
     if not context.args:
-        await update.effective_message.reply_text("Turnir nomini yozing: `/cup_table YozgiKubok`", parse_mode='HTML')
-        return
-    cup_name = context.args[0].replace("#", "")
+        cursor.execute("SELECT name FROM cups WHERE chat_id=? AND status='active'", (chat_id,))
+        active_cups = cursor.fetchall()
+        if len(active_cups) == 1:
+            cup_name = active_cups[0][0]
+        elif len(active_cups) > 1:
+            await update.effective_message.reply_text("Guruhda bir nechta faol turnir bor! Iltimos, nomini yozing: `/cup_table YozgiKubok`", parse_mode='HTML')
+            return
+        else:
+            await update.effective_message.reply_text("Hozircha faol turnir yo'q. Turnir nomini yozing: `/cup_table YozgiKubok`", parse_mode='HTML')
+            return
+    else:
+        cup_name = context.args[0].replace("#", "")
+        
     cursor.execute("SELECT id FROM cups WHERE chat_id=? AND name=?", (chat_id, cup_name))
     cup = cursor.fetchone()
     if not cup:
@@ -315,10 +327,19 @@ async def cup_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def end_cup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    
+    # AQLLI QIDIRUV
     if not context.args:
-        await update.effective_message.reply_text("Turnir nomini yozing: `/end_cup YozgiKubok`", parse_mode='HTML')
-        return
-    cup_name = context.args[0].replace("#", "")
+        cursor.execute("SELECT name FROM cups WHERE chat_id=? AND status='active'", (chat_id,))
+        active_cups = cursor.fetchall()
+        if len(active_cups) == 1:
+            cup_name = active_cups[0][0]
+        else:
+            await update.effective_message.reply_text("Turnir nomini yozing: `/end_cup YozgiKubok`", parse_mode='HTML')
+            return
+    else:
+        cup_name = context.args[0].replace("#", "")
+        
     cursor.execute("SELECT id, status FROM cups WHERE chat_id=? AND name=?", (chat_id, cup_name))
     cup = cursor.fetchone()
     if not cup or cup[1] != 'active':
@@ -404,17 +425,15 @@ async def handle_match(update: Update, context: ContextTypes.DEFAULT_TYPE):
         my_esc = html.escape(my_raw)
         opp_esc = html.escape(opp_raw)
 
-        # AQLLI AVTOMATLASHTIRISH: Agar heshteg yozilmasa, faol turnirni qidiramiz
         if not cup_hashtag:
             cursor.execute("SELECT name FROM cups WHERE chat_id=? AND status='active'", (chat_id,))
             active_cups = cursor.fetchall()
             if len(active_cups) == 1:
-                cup_hashtag = active_cups[0][0] # Avtomat topildi!
+                cup_hashtag = active_cups[0][0] 
             elif len(active_cups) > 1:
                 await update.effective_message.reply_text("Guruhda bir nechta faol turnir bor! Iltimos, qaysi biriga ekanligini heshteg bilan yozing (Masalan: #YozgiKubok)")
                 return
 
-        is_cup_match = False
         msg_prefix = ""
 
         if cup_hashtag:
@@ -430,22 +449,11 @@ async def handle_match(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                    (my_raw, opp_raw, my_goals, opp_goals, cup_match[0]))
                     conn.commit()
                     msg_prefix = f"🏆 <b>#{html.escape(cup_hashtag)}:</b>\n"
-                    is_cup_match = True
-                else:
-                    if match.group(5): # Agar heshteg ataylab yozilgan bo'lsa
-                        await update.effective_message.reply_text(f"🛑 Hurmatli ishtirokchilar, sizlar #{html.escape(cup_hashtag)} doirasida o'ynab bo'lgansiz (Limit tugagan) yoki ro'yxatda yo'qsiz!")
-                        return
-            else:
-                if match.group(5):
-                    await update.effective_message.reply_text(f"❌ #{html.escape(cup_hashtag)} nomli faol turnir topilmadi!")
-                    return
 
-        # Agar turnir o'yini bo'lmasa (yoki limit tugagan bo'lsa), oddiy o'yin sifatida yozamiz
-        if not is_cup_match:
-            cursor.execute("INSERT INTO matches (chat_id, p1, p2, p1_score, p2_score) VALUES (?, ?, ?, ?, ?)",
-                           (chat_id, my_raw, opp_raw, my_goals, opp_goals))
-            conn.commit()
-            msg_prefix = ""
+        # HAMMA O'YINLAR (Kubok yoki O'rtoqlik) UMUMIY TARIXGA YOZILADI!
+        cursor.execute("INSERT INTO matches (chat_id, p1, p2, p1_score, p2_score) VALUES (?, ?, ?, ?, ?)",
+                       (chat_id, my_raw, opp_raw, my_goals, opp_goals))
+        conn.commit()
 
         if my_goals > opp_goals: 
             farq = my_goals - opp_goals
